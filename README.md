@@ -16,6 +16,8 @@ O Brasil é abordado a partir de cinco eixos temáticos:
 
 A intenção é transformar esses conteúdos em uma experiência interativa, na qual o jogador possa testar o que sabe, reconhecer a diversidade regional do país e aprender também ao revisar as respostas e suas explicações. O jogo foi pensado como um recurso lúdico que pode apoiar atividades educativas, sem se limitar a um formato de avaliação tradicional.
 
+**Testar o jogo:** [Abrindo a prévia](https://mayos38.github.io/Brasil-em-5-Eixos/dev/integrated-preview.html)
+
 ## Como o jogo funciona
 
 Na modalidade solo atualmente implementada, o jogador configura a partida escolhendo os eixos, o nível de dificuldade e a quantidade de perguntas. Durante o jogo, cada questão apresenta quatro alternativas; o jogador seleciona uma opção e confirma a resposta.
@@ -33,7 +35,6 @@ Entre os recursos já implementados estão:
 * Revisão das questões, incluindo resposta escolhida, gabarito e explicação quando disponível.
 * Histórico local das partidas, com limite de 60 registros, além de recursos de recorde e progresso previstos pelas APIs existentes.
 
-**Uma decisão de jogabilidade:** não há sistema de pausa. Sair de uma partida encerra a sessão em andamento; o cronômetro não é congelado por modais, troca de aba ou perda de foco.
 
 ## Os cinco eixos e o banco de questões
 
@@ -118,8 +119,7 @@ Os resultados e as pendências de cada etapa são acompanhados separadamente na 
 * **Multiplayer em rede:** salas e partidas por LAN/WebRTC.
 * **Integração final:** inicialização e conexão definitiva de todos os módulos, substituindo as ferramentas intermediárias de prévia.
 
-A interface e a arquitetura seguem uma direção **mobile-first**: a experiência deve funcionar bem em telas pequenas e também se adaptar a telas maiores. A transformação em PWA ou aplicativo empacotado para Android é uma possibilidade de evolução, não uma funcionalidade que este README apresenta como já concluída.
-
+A interface e a arquitetura seguem uma direção **mobile-first**: a experiência deve funcionar bem em telas pequenas e também se adaptar a telas maiores. 
 O projeto ainda não deve ser considerado uma versão final. A implementação dos módulos e a validação integrada em navegador e dispositivos continuam fazendo parte do desenvolvimento.
 
 ## Documentação
