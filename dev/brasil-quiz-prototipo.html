@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a1220">
+<title>Brasil em 5 Eixos — Protótipo</title>
+<style>
+:root{--bg:#0a1220;--card:#121c30;--card2:#182440;--txt:#eef2fb;--mut:#93a1bd;--green:#2fae6b;--yellow:#ffd23f;--red:#ff6b6b}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{background:radial-gradient(1200px 800px at 70% -10%,#14224a,var(--bg));color:var(--txt);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;min-height:100vh}
+#app{max-width:640px;margin:0 auto;padding:18px 14px 44px}
+h2,h3{margin:8px 0}
+.card{background:var(--card);border:1px solid #233252;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.btn{display:block;width:100%;padding:14px;border-radius:12px;border:1px solid #2c3d66;background:var(--card2);color:var(--txt);font-size:16px;font-weight:600;cursor:pointer;margin-top:8px;text-align:center}
+.btn.primary{background:linear-gradient(135deg,#2fbf71,#1e9e5a);border:none;color:#fff}
+.btn.small{width:auto;display:inline-block;padding:9px 14px;font-size:14px;margin-top:8px}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;background:#1d2c4e;color:var(--yellow);font-size:12px;font-weight:700;letter-spacing:.3px;margin-right:6px}
+.opt{width:100%;text-align:left;padding:12px 14px;border-radius:12px;margin-top:8px;background:var(--card2);border:1px solid #2c3d66;color:var(--txt);font-size:15.5px;cursor:pointer}
+.opt:hover{border-color:var(--green)}
+.opt.correct{background:#123b26;border-color:var(--green)}
+.opt.wrong{background:#3b1720;border-color:var(--red)}
+.opt.locked{pointer-events:none;opacity:.9}
+.timerbar{height:6px;background:#22304f;border-radius:99px;margin:10px 0;overflow:hidden}
+.timerbar>div{height:100%;width:100%;background:linear-gradient(90deg,var(--yellow),#ff9d3f)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{background:#1d2c4e;border-radius:999px;padding:5px 12px;font-size:13.5px}
+.chip.on{outline:2px solid var(--yellow)}
+textarea.code,input,select{width:100%;padding:11px 12px;background:#0c1526;border:1px solid #2c3d66;border-radius:10px;color:var(--txt);font-size:15px;margin-top:8px;font-family:inherit}
+textarea.code{min-height:84px;font-size:12px;word-break:break-all}
+.muted{color:var(--mut);font-size:13.5px;line-height:1.5}
+.expbox{background:#101b32;border-left:3px solid var(--yellow);padding:10px 12px;border-radius:8px;margin-top:10px;font-size:14px;line-height:1.5}
+.title{font-size:30px;font-weight:800;letter-spacing:.5px;text-align:center;margin:6px 0 2px;background:linear-gradient(90deg,#7ee08a,var(--yellow));-webkit-background-clip:text;background-clip:text;color:transparent}
+.ok{color:#7ee08a;font-size:14.5px}.bad{color:var(--red);font-size:14.5px}
+code{background:#0c1526;padding:2px 6px;border-radius:6px;font-size:13px}
+.node circle{fill:#182440;stroke:#3b4f80;stroke-width:2;cursor:pointer}
+.node.cur circle{stroke:var(--yellow);stroke-width:3.5;animation:pulse 1.1s infinite alternate}
+.node.done circle{fill:#1d4630;stroke:var(--green)}
+@keyframes pulse{from{opacity:.7}to{opacity:1}}
+.nlbl{fill:#cdd8ee;font-size:12px;font-weight:700}.nscore{fill:#ffd23f;font-size:10.5px}
+.exitlink{display:inline-block;margin-top:10px;color:var(--mut);font-size:13px;cursor:pointer;text-decoration:underline}
+details summary{cursor:pointer}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+/*BANK-START*/
+const RAW=[
+["cultura","norte",1,"Qual festival de bois acontece em Parintins-AM e mobiliza a cidade inteira?","Boi-Bumbá","Frevo","Cavalo-Marinho","Círio de Nazaré",0,"Parintins realiza o Festival do Bumba Boi (Boi-Bumbá), com os bois Caprichoso e Garantido disputando o título à beira do Rio Negro."],
+["cultura","nordeste",1,"Qual ritmo rápido, dançado com guarda-chuvas coloridos no Carnaval de Recife?","Samba","Frevo","Forró","Maracatu",1,"O frevo nasceu em Pernambuco; a dança acrobática e os guarda-chuvas são sua marca registrada."],
+["cultura","sul",1,"A bebida feita de erva-mate, servida na cuia com bombilha na tradição gaúcha?","Chimarrão","Guaraná","Canjica","Vinagreira",0,"O chimarrão (mate) é central na cultura gaúcha; partilhá-lo em roda expressa hospitalidade."],
+["cultura","nordeste",2,"Qual instrumento marca o forró e o baião nordestino?","Bandolim","Sanfona","Cavaquinho","Viola caipira",1,"A sanfona (gaita) lidera o forró e o baião, popularizados por Luiz Gonzaga."],
+["cultura","nordeste",2,"O maracatu é uma manifestação carnavalesca afro-brasileira típica de qual estado?","Bahia","Pernambuco","Minas Gerais","Rio Grande do Norte",1,"As nações de maracatu desfilam no Carnaval recifense, com tambores e rituais antigos."],
+["cultura","nordeste",2,"A capoeira, patrimônio imaterial da humanidade, nasceu entre quais grupos no Brasil colonial?","Imigrantes europeus","Escravizados africanos","Indígenas do Cerrado","Soldados portugueses",1,"Nascida na Bahia entre pessoas escravizadas, misturou luta, dança e música; a UNESCO reconheceu em 2014."],
+["cultura","norte",2,"O Círio de Nazaré, uma das maiores romarias católicas do mundo, acontece em qual cidade?","Manaus-AM","Belém-PA","Santarém-PA","Macapá-AP",1,"A procissão ocorre todo ano em setembro (dia 13), reunindo milhões de fiéis no Pará."],
+["cultura","sudeste",2,"O samba carioca, símbolo do Carnaval do Rio, tem raízes profundas em qual tradição?","Espanhola","Austríaca","Afro-brasileira","Francesa",2,"As rodas de samba do início do século XX no Rio reuniam comunidades afro-brasileiras; o ritmo se espalhou pelo país."],
+["cultura","sudeste",3,"Uma das festas do Divino Espírito Santo mais famosas do Brasil acontece em qual cidade paulista?","Campinas","Tietê","Ribeirão Preto","Santos",1,"A festa de Tietê-SP, realizada desde o século XVIII, é referência da tradição do Divino no país."],
+["cultura","centro-oeste",2,"O cavalo maruá e a vida do peão pantaneiro são símbolos culturais de qual estado?","Mato Grosso","Goiás","Mato Grosso do Sul","Distrito Federal",2,"No Pantanal sul-matogrossense, o laço, a vaquejada e o cavalo maruá formam a cultura pantaneira."],
+["cultura","norte",3,"O carimbó, dança de origem africana e indígena com tambores e saias coloridas, é típico de qual estado?","Pará","Amazonas","Amapá","Acre",0,"O carimbó nasceu em Belém e é uma das danças tradicionais do Pará."],
+["cultura","sul",2,"A chimarrada, ritual de partilha do chimarrão entre amigos, expressa qual valor central da cultura gaúcha?","Individualismo","Competição comercial","Convivência e comunhão","Isolamento rural",2,"Passar a cuia em roda é símbolo de acolhimento e comunidade na tradição gaúcha."],
+["economia","sudeste",1,"Qual cidade concentra o maior polo financeiro do país, com sede da B3?","São Paulo","Rio de Janeiro","Belo Horizonte","Curitiba",0,"A bolsa brasileira (B3) tem sede em São Paulo."],
+["economia","norte",2,"A Zona Franca de Manaus incentiva a produção e exportação principalmente de qual tipo de bem?","Automóveis","Café","Eletroeletrônicos","Minério de ferro",2,"Desde o final dos anos 1960, indústrias de TVs, geladeiras e celulares se instalaram lá com isenção de impostos."],
+["economia","centro-oeste",2,"Qual estado é o maior produtor de soja do Brasil?","Mato Grosso","Rio Grande do Sul","São Paulo","Paraná",0,"Mato Grosso lidera a produção há décadas, com forte logística ferroviária e rodoviária."],
+["economia","sul",1,"O arroz irrigado em larga escala é marca da agricultura de qual estado?","Santa Catarina","Paraná","Rio Grande do Sul","Bahia",2,"RS é o maior produtor nacional, com lavouras irrigadas na planície costeira."],
+["economia","nordeste",2,"O polo petroquímico de Suape, um dos maiores do país, fica em qual estado?","Pernambuco","Bahia","Ceará","Alagoas",0,"Suape está no litoral sul de Pernambuco e concentra indústrias químicas e portuárias."],
+["economia","norte",2,"A extração de açaí e castanha na Amazônia é exemplo de qual modelo econômico?","Extrativismo","Agropecuária extensiva","Mineração","Turismo de massa",0,"O extrativismo coleta frutos nativos sem derrubar árvores, sustentando comunidades ribeirinhas."],
+["economia","sudeste",2,"Um dos maiores portos do Brasil, referência no escoamento da carga nacional, fica em qual cidade?","Paranaguá-PR","Santos-SP","Salvador-BA","Rio Grande-RS",1,"O Porto de Santos é um dos principais terminais do país."],
+["economia","sudeste",3,"As maiores descobertas do pré-sal brasileiro concentram-se em qual bacia da plataforma marítima?","Bacia de Campos","Margem Equatorial","Bacia de Santos","Bacia do Recôncavo",2,"O pré-sal tem suas principais áreas na Bacia de Santos, na plataforma sudestina."],
+["economia","centro-oeste",2,"Qual atividade histórica ainda sustenta a economia do Pantanal e deu origem à cultura do peão?","Mineração de ouro","Silvicultura","Pecuária","Pesca industrial",2,"A criação de gado no Pantanal é antiga (século XVIII) e segue central na economia regional."],
+["economia","nordeste",3,"Qual grande rio abastece o semiárido nordestino e foi alvo do projeto de transposição?","Rio Parnaíba","Rio Jaguaribe","Rio São Francisco","Rio Verde de São Francisco",2,"A bacia do São Francisco atravessa parte do sertão; a transposição (eixo norte-nordeste) irriga comunidades."],
+["economia","sudeste",2,"Florianópolis, conhecida como 'Capital Nacional do Software', fica em qual estado?","Santa Catarina","Paraná","Rio Grande do Sul","Minas Gerais",0,"SC lidera a exportação de software no Brasil, com parque tecnológico forte em Floripa."],
+["economia","norte",1,"Qual é o maior rio da Amazônia por volume de água e um dos maiores do mundo?","Rio Amazonas","Rio Negro","Rio Tapajós","Rio Xingu",0,"O Amazonas carrega uma fração enorme do escoamento mundial; a bacia abriga o bioma amazônico."],
+["animais","norte",1,"Qual mamífero aquático da Amazônia aparece na lenda do 'Boto'?","Delfim-comum","Capivara","Lontra-marta","Boto-cor-de-rosa",3,"O boto-cor-de-rosa (Inia) vive nos rios amazônicos; a lenda conta que ele vira jovem à noite."],
+["animais","centro-oeste",1,"O maior roedor do mundo, comum em bandos nas margens dos rios do Pantanal?","Capivara","Porco-espinho","Muriçoca","Tucuxi",0,"A capivara (Hydrochoerus) pode passar de 50 kg e vive perto da água."],
+["animais","centro-oeste",2,"Qual felino tem uma das maiores densidades de população no Pantanal?","Jaguara","Onça-parda","Raposa-do-campo","Onça-pintada",3,"O Pantanal abriga uma das maiores concentrações de onças-pintadas do planeta."],
+["animais","norte",2,"O pirarucu, um dos maiores peixes de água doce do mundo, vive apenas em qual bacia?","da Prata","do São Francisco","Amazônica","do Paraná",2,"Arapaima gigas é exclusivo da Amazônia; sua pesca segue cotas na época da piracema."],
+["animais","sul",2,"A ariranha (lontra-gigante) é encontrada principalmente em quais regiões do Brasil?","Norte","Nordeste","Sul e litoral sudeste","Centro-Oeste",2,"O maior mustelido das Américas vive em rios e lagos da região Sul e do litoral sul."],
+["animais","nordeste",2,"Qual ave é o símbolo do Ceará e aparece no brasão do estado?","Arara-azul","Tuiuiú","Urubu-de-crista","Arara-canindé",3,"A arara-canindé (ou canindé) é típica da caatinga/cerrado e figura no brasão do Ceará."],
+["animais","sudeste",2,"O mico-leão-dourado, primata ameaçado de extinção, vive em qual bioma?","Amazônia","Cerrado","Mata Atlântica","Pampa",2,"Endêmico do litoral da Mata Atlântica (RJ e PE), é ícone de conservação no Brasil."],
+["animais","norte",3,"Qual ave de grande porte, quase extinta em cativeiro até programas de reprodução dos anos 1960-70, vive no Xingu e na Amazônia?","Arara-vermelha","Tucano-toco","Guará-do-campo","Arara-azul-grande",3,"A arara-azul-grande (tuiuiú) foi salva por programas de reprodução em cativeiro; ocorre no Xingu, Pantanal e Amazônia."],
+["animais","nordeste",2,"Entre as tartarugas que desovam no litoral brasileiro, qual é a mais ameaçada?","Tartaruga-verde","Tartaruga-de-pente","Tartaruga-olhela","Tartaruga-carenca",1,"A tartaruga-de-pente está em perigo crítico; suas praias de desova no Nordeste são protegidas."],
+["animais","centro-oeste",3,"O maior canídeo das Américas, ameaçado e associado ao Pantanal e ao Cerrado?","Lobo-guará","Raposa-do-campo","Tamanduá-bandeira","Onça-parda",0,"O lobo-guará pode chegar a 50 kg; vive em bandos e está ameaçado."],
+["animais","centro-oeste",2,"O maior crocodiliano do Brasil, comum no Pantanal e em rios de todo o país?","Jacaré-de-papo","Iguana-verde","Cobra-d'água","Jacaré-açu",3,"O jacaré-açu pode passar de 5 m; é símbolo da fauna pantaneira."],
+["vegetacao","norte",1,"Qual bioma abriga a maior floresta tropical do planeta e cobre quase metade do território brasileiro?","Cerrado","Mata Atlântica","Caatinga","Amazônia",3,"A Floresta Amazônica é a maior floresta tropical do mundo; quase metade dela fica no Brasil."],
+["vegetacao","centro-oeste",1,"O Cerrado é o segundo maior bioma brasileiro; qual fruta típica, com caroço espinhoso e polpa amarela, dá doces e pimentadas?","Goiaba","Pitanga","Pequi","Jabuticaba",2,"O pequi, 'príncipe das frutas do Cerrado', tem caroços pontiagudos e rende doces, pimentas e até óleo."],
+["vegetacao","nordeste",2,"A caatinga é o único bioma exclusivamente brasileiro; sua vegetação está adaptada a qual regime climático?","Equatorial úmido","Subtropical frio","Temperado úmido","Semiárido, com seca prolongada",3,"Cactos e arbustos xerófitos armazenam água para atravessar o inverno seco do sertão."],
+["vegetacao","sudeste",2,"Qual bioma costeiro, do RS ao RN, é um dos mais biodiversos e ameaçados do mundo?","Pampas","Caatinga","Mata Atlântica","Amazônia",2,"Menos de 10% da Mata Atlântica original permanece; sua regeneração é prioridade."],
+["vegetacao","norte",2,"Qual fruto amazônico, de casca dura e caroço comestível, é um dos principais produtos do extrativismo?","Açaí","Cupuaçu","Buriti","Castanha-do-pará",3,"A castanha-do-pará é colhida sem derrubar a árvore e move uma cadeia exportadora internacional."],
+["vegetacao","sul",1,"O pinhão, semente que rende o tradicional 'caldo de pinhão', vem de qual árvore símbolo do Sul?","Pinheiro-do-Pará","Ipê","Eucalipto","Araucária (pinheiro-brasileiro)",3,"Relíquia da era Gondwana, a araucária aparece em brasões sulinos e é símbolo regional."],
+["vegetacao","centro-oeste",3,"Qual árvore do Cerrado floresce em massa no inverno seco, pintando o bioma de amarelo?","Ipê-amarelo","Mangueira","Jacarandá","Araucária",0,"No período seco, árvores do Cerrado florescem juntas — fenômeno que 'pinta' a paisagem."],
+["vegetacao","sudeste",3,"O manguezal é um ecossistema de transição onde plantas toleram sal e maré; qual papel ecológico ele desempenha?","Reservatório de água doce","Filtro de rios","Berçário de peixes e camarões","Barreira contra ventos",2,"O mangue abriga a larva de camarão e peixes jovens, sustentando a pesca costeira."],
+["vegetacao","norte",3,"O rio Negro é famoso por suas águas escuras; qual a causa principal?","Minerais metálicos","Taninos e ácidos húmicos da vegetação em decomposição","Areia vulcânica","Água salgada",1,"Os rios de 'água preta' ficam escuros pela matéria orgânica (taninos) que escorre das florestas."],
+["vegetacao","nordeste",3,"O mandacaru, cacto símbolo do sertão, adapta-se à seca principalmente por?","Folhas largas para fotossíntese","Flores noturnas raras","Troncos e galhos carnosos que armazenam água","Frutos venenosos",2,"Sem folhas (espinhos no lugar), o mandacaru guarda água nos caules para a seca."],
+["vegetacao","centro-oeste",2,"O Pantanal é a maior planície alagável do mundo; sua vegetação muda de acordo com o quê?","Gelo anual","Vento constante","Cheias e secas sazonais","Clima desértico",2,"No inverno as cheias cobrem a planície; no verão a água recua e a paisagem 'verdeja'."],
+["vegetacao","sul",2,"Os campos sulinos (Pampa), pastagens naturais, são usados historicamente para?","Plantio de cana-de-açúcar","Caficultura","Pecuária extensiva","Arroz irrigado",2,"O Pampa sustenta a pecuária no RS, Uruguai e Argentina desde o período colonial."],
+["vegetacao","sul",3,"Qual formação mista, com campos abertos e bosques de araucárias, é típica do Sul?","Caatinga","Manguezal","Campos e mata de araucária","Cerrado",2,"Essa vegetação mistura campo limpo e mata de pinheiros, marcada pela presença da araucária."],
+["cidades","sudeste",1,"Qual é a cidade mais populosa do Brasil?","Rio de Janeiro","Belo Horizonte","São Paulo","Salvador",2,"São Paulo tem mais de 11 milhões de habitantes no município — a maior cidade da América Latina."],
+["cidades","sudeste",2,"O Sambódromo da Marquês de Sapucaí, palco do maior desfile de Carnaval do mundo, fica em qual cidade?","Rio de Janeiro","São Paulo (Anhembi)","Belo Horizonte","Salvador",0,"Ele fica na Avenida Santos Andrade, no centro do Rio. Anhembi é um pavilhão de exposições em SP — confusão comum."],
+["cidades","nordeste",3,"Salvador foi a primeira capital do Brasil; seu centro histórico barroco é tombado pela UNESCO sob qual nome?","Pelourinho","Lapa (BH)","Morro da Glória","Santo Antônio (RJ)",0,"O Centro Histórico de Salvador, com o Pelourinho como cartão-postal, está na lista da UNESCO."],
+["cidades","sul",1,"Gramado e Canela, destinos de inverno com arquitetura europeia, ficam em qual estado?","Santa Catarina","Paraná","Rio Grande do Sul","Mato Grosso",2,"As duas cidades serranas gaúchas são polo turístico no inverno."],
+["cidades","centro-oeste",3,"Quem foi o urbanista responsável pelo Plano Piloto de Brasília, inaugurada em 1960?","Oscar Niemeyer","Lúcio Costa","Frank Lloyd Wright","Le Corbusier",1,"Lúcio Costa desenhou o plano urbano (o 'avião'); Niemeyer projetou os prédios icônicos."],
+["cidades","norte",2,"Belém, capital do Pará, é conhecida por qual cartão-postal de mercado a céu aberto?","Feira da Madrugada (BH)","Mercado Municipal de SP","Feirinha de Ipanema","Mercado Ver-o-Peso",3,"Um dos maiores mercados públicos a céu aberto do país, no centro histórico de Belém."],
+["cidades","nordeste",1,"O 'Rei do Baião', Luiz Gonzaga, nasceu em qual estado?","Ceará","Bahia","Pernambuco","Rio Grande do Norte",2,"Luiz Gonzaga nasceu em Exu-PE (1912) e eternizou o forró e o sertão na música."],
+["cidades","norte",3,"Qual é a menor capital do Brasil em população?","Rio Branco","Boa Vista","Macapá","Palmas",1,"Boa Vista (RR), com cerca de 350 mil habitantes, é a menor capital estadual; faz fronteira com a Venezuela."],
+["cidades","sudeste",2,"As Cataratas do Iguaçu ficam na divisa do Brasil com qual país?","Paraguai","Argentina","Uruguai","Bolívia",1,"O rio Iguaçu forma a fronteira entre o Paraná (BR) e a Argentina; as quedas são Patrimônio da Humanidade."],
+["cidades","sudeste",2,"Foz do Iguaçu, no Paraná, faz fronteira com qual país?","Argentina","Paraguai","Uruguai","Chile",1,"A cidade paranaense é a porta de entrada para o Paraguai pela Ponte da Amizade (tríplice fronteira)."],
+["cidades","nordeste",3,"O nome 'Recife' vem de que formação natural no litoral?","Dunas móveis","Falésias","Bancos de corais","Ilhas fluviais",2,"Os recifes de coral nos estuários deram nome à cidade — daí o apelido 'Veneza Brasileira'."],
+["cidades","centro-oeste",2,"Cuiabá, capital de Mato Grosso, fica às margens de qual rio?","Rio Paraguai","Rio Xingu","Rio Cuiabá","Rio Tapajós",2,"O nome da cidade vem do rio Cuiabá (antigo 'rio das Cuiabas'), na confluência com o Paraguai."],
+["cidades","norte",2,"O Teatro Amazonas, ópera em estilo neoclássico com mosaicos italianos, fica em qual cidade?","Belém-PA","Manaus-AM","Porto Velho-RO","Santarém-PA",1,"Inaugurado em 1896 no auge do ciclo da borracha, tem fachada e mosaicos de Veneza."],
+["cidades","sul",2,"Qual cidade gaúcha é capital do estado e foi fundada no século XVIII às margens do Guaíba?","Caxias do Sul","Pelotas","Santa Maria","Porto Alegre",3,"Porto Alegre cresceu como porto e centro administrativo do RS."]
+];
+/*BANK-END*/
+const BANK=RAW.map((r,i)=>({id:i,t:r[0],reg:r[1],d:r[2],q:r[3],o:[r[4],r[5],r[6],r[7]],a:r[8],e:r[9]}));
+
+/* ---------- utils ---------- */
+const $=s=>document.querySelector(s);
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+let AC=null;
+function beep(f,d,type,g){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),gn=AC.createGain();o.type=type||'sine';o.frequency.value=f;gn.gain.value=g||0.15;o.connect(gn);gn.connect(AC.destination);o.start();gn.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+(d||0.12));o.stop(AC.currentTime+(d||0.12)+0.02);}catch(e){}}
+function sGood(){beep(660,.12);setTimeout(()=>beep(880,.15),90);}
+function sBad(){beep(200,.2,'sawtooth',.12);}
+
+const BASE={1:10,2:20,3:40};
+const DLAB={1:'FÁCIL',2:'NORMAL',3:'DIFÍCIL'};
+const THEME_L={all:'Todos os temas',cultura:'Cultura',economia:'Economia',animais:'Animais',vegetacao:'Vegetação',cidades:'Cidades'};
+const REG_L={norte:'Norte',nordeste:'Nordeste','centro-oeste':'Centro-Oeste',sudeste:'Sudesto',sul:'Sul'};
+
+let G=null; // sessão ativa
+const C={mode:'solo',theme:'all',diff:'normal',count:10,target:0};
+function clearAllTimers(){if(G&&G.timer){clearInterval(G.timer);G.timer=null;}}
+function poolFor(theme,diff){let q=BANK.filter(x=>!theme||x.t===theme);const tiers={edu:[1],normal:[1,2],medio:[2,3],dificil:[3]};let p=q.filter(x=>tiers[diff].includes(x.d));if(p.length<5)p=q;return p;}
+function inst(q){const ord=shuffle([0,1,2,3]);return{txt:q.q,o:ord.map(i=>q.o[i]),a:ord.indexOf(q.a),d:q.d,e:q.e,t:q.t,reg:q.reg};}
+function buildQuiz(theme,diff,count,region){let base;if(region){const rp=shuffle(BANK.filter(x=>x.reg===region));base=rp.slice(0,count);if(base.length<count)base=base.concat(shuffle(BANK.filter(x=>x.reg!==region)).slice(0,count-base.length));}else{base=shuffle(poolFor(theme,diff)).slice(0,count);}return base.map(inst);}
+function copyTxt(id){const el=$('#'+id);const t=el.value;let done=false;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>done=true).catch(()=>{});}if(!done){el.focus();el.select();try{document.execCommand('copy');}catch(e){}}}
+
+/* ---------- MENU ---------- */
+function menu(){clearAllTimers();G=null;$('#app').innerHTML=`<div class="card" style="text-align:center"><div class="title">BRASIL EM 5 EIXOS</div><div class="muted" style="margin-bottom:10px">Quiz offline • 🎭 cultura • 💰 economia • 🦜 animais • 🌿 vegetação • 🏙️ cidades<br>Protótipo v0.1 — ${BANK.length} questões no banco</div></div>
+<button class="btn primary" onclick="setup('solo')">📚 Modo Solo (educativo)</button>
+<button class="btn" onclick="campaignMap()">🗺️ Campanha: atravessar o Brasil</button>
+<button class="btn" onclick="setup('local2')">⚔️ 1×1 no mesmo aparelho</button>
+<button class="btn" onclick="setup('local4')">👥 Todos contra todos (mesmo aparelho)</button>
+<button class="btn" onclick="lanSetup()">📡 Sala LAN / Wi-Fi <span class="badge">experimental</span></button>
+<div class="card muted">Dica: o modo solo explica cada resposta — ótimo para revisão. O 1×1 e o FFA rodam sem internet; a sala LAN conecta vários aparelhos na mesma rede.</div>`;}
+
+/* ---------- SETUP (solo / local) ---------- */
+function setup(preset){C.mode=preset;if(!C.theme)C.theme='all';const isLocal=(preset==='local2'||preset==='local4');let html=`<div class="card"><h3>${preset==='solo'?'📚 Modo Solo':(isLocal?'⚔️ Partida no mesmo aparelho':'🎮 Configuração')}</h3>
+<label class="muted">Tema</label><select id="f-theme">${Object.entries(THEME_L).map(([k,v])=>`<option value="${k}"${C.theme===k?' selected':''}>${v}</option>`).join('')}</select>
+<label class="muted">Dificuldade</label><select id="f-diff"><option value="edu"${C.diff==='edu'?' selected':''}>Educativo (fácil + explicações)</option><option value="normal"${C.diff==='normal'?' selected':''}>Normal</option><option value="medio"${C.diff==='medio'?' selected':''}>Médio</option><option value="dificil"${C.diff==='dificil'?' selected':''}>Difícil</option></select>`;
+if(isLocal){const n=preset==='local2'?2:4;html+=`<label class="muted">Quantos jogadores (2 a 4)</label><input id="f-pn" type="number" min="2" max="4" value="${n}">`;for(let i=0;i<4;i++)html+=`<input id="f-name${i}" placeholder="Nome do jogador ${i+1}" maxlength="14">`;
+ html+=`<label class="muted">Perguntas</label><select id="f-count"><option>8</option><option selected>10</option><option>12</option></select>`;
+ html+=`<label class="muted">Vence quem chegar a… (ou o de mais pontos no fim)</label><select id="f-target"><option value="0" selected>Sem meta — vence quem tiver mais</option><option value="100">100 pontos</option><option value="200">200 pontos</option></select>`;}
+html+=`<div class="row"><button class="btn primary small" onclick="${isLocal?'startLocal()':'startSolo()'}">Começar ▶</button><button class="btn small" onclick="menu()">Voltar</button></div>
+<p class="muted">15 segundos por pergunta. Pontos: fácil 10, normal 20, difícil 40 + bônus de tempo (até 7).</p></div>`;$('#app').innerHTML=html;}
+
+function startSolo(){C.theme=$('#f-theme').value;C.diff=$('#f-diff').value;
+const quiz=buildQuiz(C.theme==='all'?null:C.theme,C.diff,10);
+G={mode:'solo',quiz,i:0,score:0,right:0,review:[],locked:false,tEnd:0,lastChoice:-1};qView();}
+
+function startLocal(){C.theme=$('#f-theme').value;C.diff=$('#f-diff').value;
+let n=parseInt($('#f-pn').value,10)||2;n=Math.max(2,Math.min(4,n));
+const players=[];for(let i=0;i<n;i++){players.push(($('#f-name'+i).value.trim())||('Jogador '+(i+1)));}
+C.count=parseInt($('#f-count').value,10)||10;C.target=parseInt($('#f-target').value,10)||0;
+const quiz=buildQuiz(C.theme==='all'?null:C.theme,C.diff,C.count);
+G={mode:'local',players,quiz,count:C.count,target:C.target,scores:{},i:-1,turn:0,review:[],locked:false,tEnd:0,lastChoice:-1};handoffView();}
+
+/* ---------- VIEW DE PERGUNTA (solo/campanha/local) ---------- */
+function scoreChips(){if(G.mode==='local'){return G.players.map((nm,i)=>`<span class="chip${i===G.turn?' on':''}">${esc(nm)} <b>${G.scores[nm]||0}</b></span>`).join('');}if(G.mode==='solo')return `<span class="chip">Pontos: <b>${G.score}</b> • Acertos: ${G.right}/${G.i+(G.locked?1:0)}</span>`;return '';}
+function qLabel(){if(G.mode==='local')return 'Vez de '+esc(G.players[G.turn]);if(G.mode==='campaign')return `Campanha • ${REG_L[G.region]} (${G.i+1}/${G.quiz.length})`;return `Pergunta ${G.i+1} de ${G.quiz.length}`;}
+function qView(){const qi=G.quiz[G.i];G.locked=false;clearAllTimers();
+$('#app').innerHTML=`<div class="card">
+<div class="row" style="justify-content:space-between"><span class="muted">${qLabel()}</span>${scoreChips()}</div>
+<div class="timerbar"><div id="tb"></div></div><div style="text-align:right" class="muted"><span id="tsec">15</span>s</div>
+<div class="row" style="margin-top:6px"><span class="badge">${THEME_L[qi.t]}</span><span class="badge" style="background:#243a2e;color:#8fe09f">${REG_L[qi.reg]}</span><span class="badge" style="background:#3a2d12;color:var(--yellow)">${DLAB[qi.d]}</span></div>
+<h3 style="margin:12px 0 4px;line-height:1.4">${esc(qi.txt)}</h3>
+${qi.o.map((o,i)=>`<button class="opt" id="op${i}" onclick="answer(${i})"><b>${'ABCD'[i]})</b> ${esc(o)}</button>`).join('')}
+<span class="exitlink" onclick="if(confirm('Sair da partida?'))menu()">⏸ sair da partida</span>
+</div>`;
+G.tEnd=Date.now()+15000;G.timer=setInterval(tick,100);}
+function tick(){const rem=Math.max(0,G.tEnd-Date.now());const tb=$('#tb');if(tb)tb.style.width=(rem/15000*100)+'%';const s=$('#tsec');if(s)s.textContent=Math.ceil(rem/1000);if(rem<=0){answer(-1);}}
+
+function answer(i){if(!G||G.locked)return;G.locked=true;clearAllTimers();G.lastChoice=i;
+const qi=G.quiz[G.i];const rem=Math.max(0,Math.round((G.tEnd-Date.now())/1000));
+const ok=i===qi.a;let pts=ok?BASE[qi.d]+Math.min(rem,7):0;
+ok?sGood():sBad();
+if(G.mode==='solo'||G.mode==='campaign'){if(ok)G.score+=pts;if(ok)G.right++;}
+G.review.push({q:qi,choice:i,p:G.mode==='local'?G.players[G.turn]:null,ok});
+const btnLabel=(G.i+1>=G.quiz.length)?'Ver resultado 🏁':'Continuar ▶';
+revealView(ok,pts,btnLabel,()=>{if(G.i+1>=G.quiz.length){(G.mode==='campaign')?endStage():endQuiz();}else{G.i++;qView();}});}
+
+function revealView(ok,pts,btnLabel,next){const qi=G.quiz[G.i];
+$('#app').innerHTML=`<div class="card">
+<div class="row" style="justify-content:space-between"><span class="muted">${qLabel()}</span>${scoreChips()}</div>
+<h3 style="margin-top:6px">${ok?'✅ Acertou!':'❌ Não foi dessa vez'} ${pts?`<b>+${pts} pts</b>`:''}</h3>
+<p class="muted" style="margin-top:2px">Resposta correta: <b>${esc(qi.o[qi.a])}</b></p>
+${qi.o.map((o,idx)=>{let c='opt locked';if(idx===qi.a)c+=' correct';else if(idx===G.lastChoice)c+=' wrong';return `<div class="${c}"><b>${'ABCD'[idx]})</b> ${esc(o)}</div>`;}).join('')}
+<div class="expbox">💡 ${esc(qi.e)}</div>
+<button class="btn primary" onclick="window.__next()">${btnLabel}</button></div>`;
+window.__next=next;}
+
+/* ---------- RESULTADOS / REVISÃO ---------- */
+function endQuiz(){const total=G.quiz.length;const pct=Math.round(G.right/total*100);
+const key='bq5_best_solo';const prev=LS.get(key,0);if(G.score>prev)LS.set(key,G.score);
+$('#app').innerHTML=`<div class="card" style="text-align:center"><h2>Fim de jogo!</h2>
+<div style="font-size:40px;font-weight:800;color:var(--yellow)">${G.score} pts</div>
+<p class="muted">Acertos: ${G.right}/${total} (${pct}%) • Recorde solo: ${Math.max(prev,G.score)} pts</p></div>
+<button class="btn primary" onclick="reviewScreen()">📖 Revisar as questões (educativo)</button>
+<button class="btn" onclick="startSolo()">Jogar de novo</button><button class="btn" onclick="menu()">Menu</button>`;}
+
+function endStage(){const P=prog();P.done[G.region]=true;if(G.score>(P.best[G.region]||0))P.best[G.region]=G.score;LS.set('bq5_prog',P);
+const allDone=STAGES.every(r=>P.done[r]);
+if(allDone){$('#app').innerHTML=`<div class="card" style="text-align:center"><div style="font-size:48px">🏆</div><h2>Você atravessou o Brasil!</h2>
+<p class="muted">Todas as 5 regiões concluídas. Total de recordes: ${STAGES.reduce((s,r)=>s+(P.best[r]||0),0)} pts</p></div>
+<button class="btn primary" onclick="reviewScreen()">📖 Revisar a última região</button>
+<button class="btn" onclick="campaignMap()">Ver mapa</button>
+<button class="btn" onclick="LS.set('bq5_prog',{done:{},best:{}});campaignMap()">Reiniciar campanha</button><button class="btn" onclick="menu()">Menu</button>`;return;}
+$('#app').innerHTML=`<div class="card" style="text-align:center"><h2>${REG_L[G.region]} concluída! 🎉</h2>
+<div style="font-size:36px;font-weight:800;color:var(--yellow)">${G.score} pts</div><p class="muted">Acertos: ${G.right}/${G.quiz.length}</p></div>
+<button class="btn primary" onclick="reviewScreen()">📖 Revisar as questões (educativo)</button>
+<button class="btn" onclick="campaignMap()">Continuar no mapa ▶</button>`;}
+
+function reviewScreen(){let h=`<div class="card"><h3>📖 Revisão</h3><p class="muted">Revise cada pergunta e a explicação — ótimo para estudar.</p></div>`;
+G.review.forEach((r,k)=>{h+=`<div class="card" style="padding:12px"><b>${k+1}.</b> ${esc(r.q.txt)}${r.p?` <span class="muted">(${esc(r.p)})</span>`:''}<br>
+<span class="${r.ok?'ok':'bad'}">${r.ok?'✅ Você acertou':(r.choice<0?'⏰ Tempo esgotado':'❌ Você marcou: '+esc(r.q.o[r.choice]))} • Correta: ${esc(r.q.o[r.q.a])}</span>
+<div class="expbox">💡 ${esc(r.q.e)}</div></div>`;});
+h+=`<button class="btn" onclick="${G.mode==='campaign'?'campaignMap()':'menu()'}">Voltar</button>`;$('#app').innerHTML=h;}
+
+/* ---------- CAMPANHA ---------- */
+const STAGES=['norte','nordeste','centro-oeste','sudeste','sul'];
+function prog(){return LS.get('bq5_prog',{done:{},best:{}});}
+function campaignMap(){clearAllTimers();G=null;const P=prog();const idxNext=STAGES.findIndex(r=>!P.done[r]);
+const POS={norte:[135,62],nordeste:[287,104],'centro-oeste':[187,142],sudeste:[292,206],sul:[207,258]};
+let nodes='';STAGES.forEach((r,i)=>{const done=P.done[r];const cls=done?'done':(i===idxNext?'cur':'lock');const p=POS[r];
+nodes+=`<g class="node ${cls}" onclick="${(i===idxNext||done)?`stageOpen('${r}')`:''}">
+<circle cx="${p[0]}" cy="${p[1]}" r="16"></circle>${done?`<text x="${p[0]}" y="${p[1]+5}" text-anchor="middle">✓</text>`:''}
+<text class="nlbl" x="${p[0]}" y="${p[1]-24}" text-anchor="middle">${REG_L[r]}</text>${P.best[r]!=null?`<text class="nscore" x="${p[0]}" y="${p[1]+36}" text-anchor="middle">${P.best[r]} pts</text>`:''}</g>`;});
+$('#app').innerHTML=`<div class="card"><h3>🗺️ Campanha — atravesse o Brasil</h3><p class="muted">Complete 6 perguntas de cada região, do Norte ao Sul. ${Object.keys(P.done).length}/5 regiões concluídas.</p></div>
+<div class="card" style="padding:8px"><svg viewBox="0 0 400 300" width="100%">
+<path d="M95,28 L150,18 L210,24 L252,46 L300,78 L318,112 L308,150 L336,206 L300,252 L213,298 L150,268 L128,214 L140,168 L118,118 L92,78 Z" fill="#1b2a4d" opacity="0.5"></path>
+<path d="M135,62 L287,104 L187,142 L292,206 L207,258" stroke="#ffd23f" stroke-width="2" stroke-dasharray="6 6" fill="none" opacity=".7"></path>
+${nodes}</svg></div>
+<button class="btn small" onclick="menu()">← Menu</button>`;}
+function stageOpen(r){const quiz=buildQuiz(null,'normal',6,r);
+G={mode:'campaign',region:r,quiz,i:0,score:0,right:0,review:[],locked:false,tEnd:0,lastChoice:-1};qView();}
+
+/* ---------- LAN (WebRTC, experimental) ---------- */
+const RT={host:null,joiner:null};
+function rtcOK(){return typeof RTCPeerConnection!=='undefined';}
+function lanSetup(){$('#app').innerHTML=`<div class="card"><h3>📡 Sala LAN / Wi-Fi <span class="badge">experimental</span></h3>
+<p class="muted">Jogue em vários aparelhos na mesma rede, sem internet e sem login. Um aparelho cria a sala (anfitrião) e os demais entram trocando códigos.</p>
+${!rtcOK()?`<div class="expbox" style="border-color:var(--red)">⚠️ Este navegador não expõe WebRTC. Dica: sirva o arquivo em <b>http://localhost</b> (ex.: <code>python -m http.server</code>) e abra por esse endereço.</div>`:''}
+<label class="muted">Tema da partida</label><select id="l-theme">${Object.entries(THEME_L).map(([k,v])=>`<option value="${k}"${k==='all'?' selected':''}>${v}</option>`).join('')}</select>
+<label class="muted">Dificuldade</label><select id="l-diff"><option value="normal" selected>Normal</option><option value="edu">Educativo (fácil)</option><option value="medio">Médio</option><option value="dificil">Difícil</option></select>
+<div class="row"><button class="btn primary small" onclick="lanGo('host')">🏠 Criar sala (anfitrião)</button><button class="btn small" onclick="lanGo('join')">🚪 Entrar em uma sala</button><button class="btn small" onclick="menu()">Voltar</button></div>
+<details style="margin-top:10px"><summary class="muted">Como funciona (4 passos)</summary><p class="muted">1) Anfitrião cria a sala e copia o código 1. 2) Jogador cola o código 1 e recebe seu código 2. 3) Jogador manda o código 2 ao anfitrião, que aplica. 4) Conectados! O anfitrião inicia (máx. 4 jogadores).</p></details></div>`;}
+function lanGo(role){C.theme=$('#l-theme').value;C.diff=$('#l-diff').value;
+if(role==='host'){leaveRoom();lanHostEnter();}else{leaveRoom();lanJoinView();}}
+
+/* --- anfitrião --- */
+function lanStatus(t){const el=$('#lan-status');if(el)el.innerHTML=t;}
+function renderLanHost(){const n=RT.host?Object.keys(RT.host.peers).length:0;
+$('#app').innerHTML=`<div class="card"><h3>🏠 Anfitrião</h3><p id="lan-status" class="muted">Gerando convite…</p>
+<label class="muted">Código 1 — envie ao próximo jogador</label><textarea id="lan-code1" class="code" readonly></textarea>
+<button class="btn small" onclick="copyTxt('lan-code1');this.textContent='✅ Copiado!'">📋 Copiar código 1</button>
+<label class="muted">Cole aqui o código que o jogador enviar (código 2)</label><input id="lan-ans-in" placeholder="cole o código do jogador…">
+<div class="row"><button class="btn small primary" onclick="hostApplyAnswer()">Aplicar</button><button class="btn small" onclick="leaveRoom();menu()">Sair da sala</button></div>
+<h4 style="margin-top:14px">Jogadores (${n}/4)</h4><div id="host-players"></div>
+<div id="lan-match"></div>
+<button class="btn primary" id="lan-start" disabled onclick="hostStartMatch()">▶ Iniciar partida</button></div>`;
+if(RT.host)$('#lan-code1').value=RT.host.offer||'';renderHostPlayers();}
+function renderHostPlayers(){const el=$('#host-players');if(!el)return;const ps=Object.values(RT.host.peers);
+el.innerHTML=ps.length?ps.map(p=>`<span class="chip">👤 ${esc(p.name)}</span>`).join(' '):'<span class="muted">Ninguém entrou ainda.</span>';
+const st=$('#lan-start');if(st)st.disabled=(ps.length<2||!!(G&&G.lan));}
+async function lanHostEnter(){RT.host={peers:{},nextId:1,offer:'',pending:null};renderLanHost();
+try{await genHostOffer();$('#lan-code1').value=RT.host.offer;lanStatus('Código 1 pronto. Aguardando jogadores…');}catch(e){lanStatus('⚠️ Falha ao criar a sala: '+e.message);}}
+async function genHostOffer(){const pc=new RTCPeerConnection();const dc=pc.createDataChannel('g');wireHostDC(pc,dc);
+const off=await pc.createOffer();await pc.setLocalDescription(off);RT.host.pending=pc;RT.host.offer=btoa(JSON.stringify(pc.localDescription));}
+function findPeer(dc){for(const k in RT.host.peers)if(RT.host.peers[k].dc===dc)return RT.host.peers[k];return null;}
+function wireHostDC(pc,dc){
+dc.onopen=()=>lanStatus('Canal aberto. Aguardando o jogador se apresentar…');
+dc.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(err){return;}const rec=findPeer(dc);
+ if(m.t==='ice'){pc.addIceCandidate(m.c).catch(()=>{});}
+ else if(m.t==='hello'&&!rec){if(Object.keys(RT.host.peers).length>=4){lanStatus('⚠️ Sala cheia (máx. 4).');return;}const id='p'+(RT.host.nextId++);RT.host.peers[id]={id,pc,dc,name:m.name||('Jogador '+id)};onPeerJoined(RT.host.peers[id]);}
+ else if(rec&&G&&G.lan&&m.t==='ans'){hostMsgAns(rec.id,m.choice);}};
+dc.onclose=()=>{const rec=findPeer(dc);if(rec){delete RT.host.peers[rec.id];renderHostPlayers();lanStatus('⚠️ Um jogador saiu da sala.');}};}
+function onPeerJoined(rec){try{rec.dc.send(JSON.stringify({t:'you',id:rec.id}));}catch(e){}
+renderHostPlayers();const n=Object.keys(RT.host.peers).length;
+lanStatus(`✅ ${esc(rec.name)} entrou! (${n}/4)`);
+if(n<4&&!(G&&G.lan))genHostOffer().then(()=>{const el=$('#lan-code1');if(el)el.value=RT.host.offer;});}
+async function hostApplyAnswer(){try{const txt=$('#lan-ans-in').value.trim();if(!txt){lanStatus('Cole o código do jogador primeiro.');return;}await RT.host.pending.setRemoteDescription(JSON.parse(atob(txt)));$('#lan-ans-in').value='';lanStatus('Código aplicado. Aguardando o jogador se conectar…');}catch(e){lanStatus('⚠️ Código inválido — confira se copiou tudo.');}}
+function broadcast(m){Object.values(RT.host.peers).forEach(p=>{try{if(p.dc.readyState==='open')p.dc.send(JSON.stringify(m));}catch(e){}});}
+function hostTickUI(t){const el=$('#lan-match-status');if(el)el.textContent=t;}
+function renderHostLive(){const el=$('#lan-live');if(!el)return;
+el.innerHTML=G.players.map(p=>`<span class="chip">${esc(p.name)} <b>${G.scores[p.id]||0}</b></span>`).join(' ');}
+function hostStartMatch(){const plist=Object.values(RT.host.peers);if(plist.length<2||(G&&G.lan))return;
+const quiz=buildQuiz(C.theme==='all'?null:C.diff?C.theme:null,C.diff,8);
+G={mode:'lan',role:'host',lan:true,players:plist.map(p=>({id:p.id,name:p.name})),quiz,i:-1,scores:{},target:C.target,locked:false,tEnd:0};
+broadcast({t:'start',players:G.players,count:quiz.length,target:G.target});
+$('#lan-match').innerHTML=`<div class="card" style="padding:12px;margin-top:12px"><b>Partida em andamento</b><br><span id="lan-match-status" class="muted">…</span><div id="lan-live" style="margin-top:8px"></div></div>`;
+sendQ(0);}
+function sendQ(i){const qi=G.quiz[i];G.i=i;G.cur=qi;G.lanAns={};G.locked=false;clearAllTimers();
+broadcast({t:'q',i,qd:{txt:qi.txt,o:qi.o}});
+hostTickUI(`Pergunta ${i+1} de ${G.quiz.length} — aguardando respostas (0/${G.players.length})`);renderHostLive();
+G.tEnd=Date.now()+15000;G.timer=setInterval(()=>{const rem=Math.max(0,G.tEnd-Date.now());if(rem<=0)lanRevealHost();},200);}
+function hostMsgAns(pid,choice){if(!G||!G.lan||G.locked)return;G.lanAns[pid]=choice;
+hostTickUI(`Pergunta ${G.i+1} — respostas: ${Object.keys(G.lanAns).length}/${G.players.length}`);
+if(Object.keys(G.lanAns).length>=G.players.length)lanRevealHost();}
+function lanRevealHost(){if(!G||!G.lan||G.locked)return;G.locked=true;clearAllTimers();const qi=G.cur;
+const rem=Math.max(0,Math.round((G.tEnd-Date.now())/1000));
+const pts={};G.players.forEach(p=>{const c=G.lanAns[p.id];pts[p.id]=(c===qi.a)?BASE[qi.d]+Math.min(rem,7):0;G.scores[p.id]=(G.scores[p.id]||0)+pts[p.id];});
+broadcast({t:'reveal',a:qi.a,e:qi.e,pts,scores:G.scores});renderHostLive();hostTickUI('Respostas reveladas…');
+setTimeout(()=>{const done=G.i+1>=G.quiz.length||(G.target>0&&Math.max(...Object.values(G.scores))>=G.target);
+ if(done){broadcast({t:'end',final:Object.entries(G.scores).map(([id,s])=>({name:G.players.find(p=>p.id===id).name,score:s}))});renderHostEnd();}
+ else sendQ(G.i+1);},3500);}
+function renderHostEnd(){const el=$('#lan-match');if(!el)return;
+el.innerHTML=`<div class="card" style="padding:12px;margin-top:12px"><b>🏁 Fim da partida</b><br>${Object.entries(G.scores).sort((a,b)=>b[1]-a[1]).map(([id,s],i)=>`<div>${i===0?'🥇 ':''}${esc(G.players.find(p=>p.id===id).name)} — <b>${s} pts</b></div>`).join('')}<br><button class="btn small primary" onclick="leaveRoom();menu()">Sair da sala</button></div>`;}
+
+/* --- jogador (convidado) --- */
+function lanJoinView(){$('#app').innerHTML=`<div class="card"><h3>🚪 Entrar em uma sala</h3><p id="lan-status" class="muted">Cole o código 1 do anfitrião.</p>
+<label class="muted">Seu nome</label><input id="lan-name" placeholder="Jogador" maxlength="14">
+<label class="muted">Código 1 (do anfitrião)</label><textarea id="lan-code-in" class="code"></textarea>
+<button class="btn primary small" onclick="joinEnter()">Gerar meu código ▶</button>
+<div id="join-part2" style="display:none"><label class="muted">Código 2 — envie ao anfitrião</label><textarea id="lan-code2" class="code" readonly></textarea><button class="btn small" onclick="copyTxt('lan-code2');this.textContent='✅ Copiado!'">📋 Copiar código 2</button></div>
+<button class="btn small" style="margin-top:10px" onclick="leaveRoom();menu()">Sair</button></div>`;}
+async function joinEnter(){if(!rtcOK()){lanStatus('⚠️ WebRTC indisponível neste navegador.');return;}
+let offer;try{offer=JSON.parse(atob($('#lan-code-in').value.trim()));}catch(e){lanStatus('⚠️ Código inválido — confira se copiou tudo.');return;}
+const pc=new RTCPeerConnection();RT.joiner={pc,dc:null};
+pc.ondatachannel=e=>{RT.joiner.dc=e.channel;wireJoinerDC(e.channel);};
+pc.onicecandidate=e=>{if(e.candidate&&RT.joiner.dc&&RT.joiner.dc.readyState==='open')try{RT.joiner.dc.send(JSON.stringify({t:'ice',c:e.candidate}));}catch(err){}};
+await pc.setRemoteDescription(offer);
+const ans=await pc.createAnswer();await pc.setLocalDescription(ans);
+$('#join-part2').style.display='block';
+$('#lan-code2').value=btoa(JSON.stringify(pc.localDescription));
+lanStatus('Código 2 pronto — envie ao anfitrião. Aguardando conexão…');}
+function wireJoinerDC(dc){
+dc.onopen=()=>{try{const nm=$('#lan-name')?$('#lan-name').value.trim()||'Jogador':'Jogador';dc.send(JSON.stringify({t:'hello',name:nm}));}catch(e){}};
+dc.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(err){return;}joinMsg(m);};
+dc.onclose=()=>{$('#app').innerHTML=`<div class="card"><h3>📡 Fim da conexão</h3><p class="muted">O anfitrião saiu ou a rede caiu.</p><button class="btn" onclick="leaveRoom();menu()">Menu</button></div>`;};}
+function joinMsg(m){const J=RT.joiner;if(!J)return;
+if(m.t==='ice'){J.pc.addIceCandidate(m.c).catch(()=>{});}
+else if(m.t==='you'){G={mode:'lan',role:'joiner',myId:m.id,scores:{},locked:true,cur:null,i:-1};
+ $('#app').innerHTML=`<div class="card" style="text-align:center"><h2>Conectado! 🎉</h2><p class="muted">Aguardando o anfitrião iniciar a partida…</p></div>`;}
+else if(m.t==='start'){G.players=m.players;G.count=m.count;G.target=m.target;G.i=-1;G.scores={};
+ $('#app').innerHTML=`<div class="card" style="text-align:center"><h2>Partida iniciada</h2><p class="muted">Jogadores: ${m.players.map(p=>esc(p.name)).join(', ')} • ${m.count} perguntas${m.target?' • meta '+m.target+' pts':''}</p></div>`;}
+else if(m.t==='q'){clientQ(m);}
+else if(m.t==='reveal'){clientReveal(m);}
+else if(m.t==='end'){clientEnd(m.final);}}
+function clientQ(m){G.cur=m.qd;G.i=m.i;G.locked=false;clearAllTimers();
+$('#app').innerHTML=`<div class="card">
+<div class="row" style="justify-content:space-between"><span class="muted">Pergunta ${m.i+1} de ${G.count}</span><span class="chip">Você: <b>${(G.scores[G.myId]||0)} pts</b></span></div>
+<div class="timerbar"><div id="tb"></div></div>
+<h3 style="line-height:1.4;margin-top:8px">${esc(m.qd.txt)}</h3>
+${m.qd.o.map((o,i)=>`<button class="opt" id="op${i}" onclick="clientAnswer(${i})"><b>${'ABCD'[i]})</b> ${esc(o)}</button>`).join('')}</div>`;
+G.tEnd=Date.now()+15000;G.timer=setInterval(()=>{const rem=Math.max(0,G.tEnd-Date.now());const tb=$('#tb');if(tb)tb.style.width=(rem/15000*100)+'%';if(rem<=0)clientAnswer(-1);},200);}
+function clientAnswer(i){if(!G||G.locked)return;G.locked=true;clearAllTimers();
+try{RT.joiner.dc.send(JSON.stringify({t:'ans',i:G.i,choice:i}));}catch(e){}
+document.querySelectorAll('.opt').forEach(b=>b.classList.add('locked'));
+const sel=$('#op'+Math.max(0,i));if(sel&&i>=0)sel.classList.add(G.cur.a===i?'correct':'wrong');
+$('#app').insertAdjacentHTML('beforeend','<div class="expbox" style="margin-top:10px">⏳ Respondido! Aguardando os outros jogadores…</div>');}
+function clientReveal(m){G.scores=m.scores;const myP=m.pts[G.myId]||0;myP?sGood():sBad();
+const q=G.cur;
+$('#app').innerHTML=`<div class="card"><h3>${myP?`✅ +${myP} pts`:'❌ Sem pontos'}</h3>
+<p class="muted">Resposta correta: <b>${esc(q.o[m.a])}</b></p>
+${q.o.map((o,i)=>{let c='opt locked';if(i===m.a)c+=' correct';return `<div class="${c}"><b>${'ABCD'[i]})</b> ${esc(o)}</div>`;}).join('')}
+<div class="expbox">💡 ${esc(q.e)}</div>
+<div class="row" style="margin-top:10px">${G.players.map(p=>`<span class="chip">${esc(p.name)} <b>${m.scores[p.id]||0}</b></span>`).join('')}</div>
+<p class="muted" style="text-align:center;margin-top:8px">Próxima pergunta em instantes…</p></div>`;}
+function clientEnd(final){$('#app').innerHTML=`<div class="card" style="text-align:center"><h2>🏁 Fim da partida!</h2>${final.sort((a,b)=>b.score-a.score).map((f,i)=>`<div style="font-size:16px;margin-top:4px">${i===0?'🥇 ':''}${esc(f.name)} — <b>${f.score} pts</b></div>`).join('')}</div>
+<button class="btn primary" onclick="leaveRoom();menu()">Sair da sala</button>`;}
+
+function leaveRoom(){clearAllTimers();
+if(RT.host){Object.values(RT.host.peers).forEach(p=>{try{p.dc.close();}catch(e){}try{p.pc.close();}catch(e){}});RT.host=null;}
+if(RT.joiner){try{RT.joiner.dc&&RT.joiner.dc.close();}catch(e){}try{RT.joiner.pc.close();}catch(e){}RT.joiner=null;}
+G=null;}
+
+menu();
+</script>
+</body>
+</html>

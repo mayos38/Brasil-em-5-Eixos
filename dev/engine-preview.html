@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brasil em 5 Eixos — Preview do Motor (DEV)</title>
+<!--
+  ============================================================================
+  PAINEL TEMPORÁRIO DE DESENVOLVIMENTO — preview do motor no navegador
+  ============================================================================
+  O que é:
+    Demonstração funcional do motor (Módulo 5) usando os módulos de produção
+    reais, sem reimplementar nenhuma regra: config.js → util.js → storage.js
+    → bank.js → engine.js. Toda regra de jogo (pool, embaralhamento,
+    pontuação, tempo, finalização, recorde) vem de BQ5.engine; esta página
+    apenas apresenta o estado e chama a API pública do motor.
+
+  COMO EXECUTAR:
+    1) Na raiz do projeto (a pasta que contém brasil-quiz/ e dev/):
+         python -m http.server 8000
+       (qualquer servidor HTTP local serve: npx http-server, php -S, etc.)
+    2) Abrir no navegador:
+         http://localhost:8000/dev/engine-preview.html
+
+    Por que um servidor HTTP local?
+      bank.js carrega o banco oficial (data/questions.json) via fetch().
+      O Chrome bloqueia fetch() em páginas abertas por file://, então o
+      caminho recomendado é sempre o servidor local acima.
+
+    Alternativa sem servidor:
+      Abra esta página por file:// e, quando a carga do banco falhar,
+      use o botão "Importar questions.json manualmente" (usa a API oficial
+      BQ5.bank.fromText — nenhum dado é duplicado aqui).
+
+  ISOLAMENTO:
+    - Este arquivo NÃO é o index.html definitivo e não interfere nele;
+    - Não altera os módulos de produção; não contém perguntas nem regras;
+    - Estado do jogo vive exclusivamente em BQ5.engine (abort() descarta a
+      partida sem persistir, como no protótipo).
+  ============================================================================
+-->
+<style>
+  :root {
+    --bg: #f4f6fa; --card: #ffffff; --ink: #22303c; --muted: #5d6b7a;
+    --line: #dde4ec; --accent: #1a7f4b; --accent-soft: #e2f3ea;
+    --bad: #c0392b; --bad-soft: #fbe9e6; --warn: #8a6d1a; --warn-soft: #fdf5dc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 16px 20px 48px; }
+  header.app {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 14px 0 10px; border-bottom: 2px solid var(--line);
+  }
+  header.app h1 { font-size: 1.35rem; margin: 0; }
+  .badge-dev {
+    background: #fff3cd; color: #7a5b00; border: 1px solid #e6cf8a;
+    font-size: .72rem; font-weight: 700; letter-spacing: .04em;
+    padding: 2px 8px; border-radius: 999px; text-transform: uppercase;
+  }
+  .status {
+    margin: 14px 0 0; padding: 10px 14px; border-radius: 8px;
+    font-size: .92rem; background: var(--card); border: 1px solid var(--line);
+    color: var(--muted); white-space: pre-wrap;
+  }
+  .status.ok   { background: var(--accent-soft); border-color: #b5dcc6; color: #14532d; }
+  .status.err  { background: var(--bad-soft);    border-color: #e7b8ae; color: #7c2015; }
+  .status.warn { background: var(--warn-soft);   border-color: #e6d49a; color: #6b5312; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px; margin-top: 16px;
+  }
+  .card h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  label { display: block; font-weight: 600; font-size: .9rem; margin: 10px 0 4px; }
+  select, input[type="file"] {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+    background: #fff; font-size: .95rem; color: var(--ink);
+  }
+  button {
+    cursor: pointer; border: 1px solid transparent; border-radius: 8px;
+    padding: 10px 16px; font-size: .95rem; font-weight: 600;
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-ghost   { background: #eef2f7; color: var(--ink); border-color: var(--line); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .muted { color: var(--muted); font-size: .85rem; }
+  /* ---- jogo ---- */
+  .hud {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    flex-wrap: wrap; margin-top: 16px;
+  }
+  .hud .cell { font-size: .9rem; color: var(--muted); }
+  .hud b { color: var(--ink); }
+  .timerbox { min-width: 240px; flex: 1; max-width: 380px; }
+  .timerbar {
+    height: 10px; background: #e6ebf2; border-radius: 999px; overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .timerbar i {
+    display: block; height: 100%; width: 100%;
+    background: linear-gradient(90deg, #2fa46a, #7cc89b); transition: width .2s linear;
+  }
+  .timerbox.low i { background: linear-gradient(90deg, #d9534f, #e8918e); }
+  .qmeta {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;
+  }
+  .chip {
+    font-size: .75rem; font-weight: 600; padding: 2px 10px; border-radius: 999px;
+    background: #eef2f7; color: var(--muted); border: 1px solid var(--line);
+  }
+  .qtext { font-size: 1.12rem; font-weight: 600; margin: 4px 0 14px; }
+  ul.opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  ul.opts li button {
+    width: 100%; text-align: left; background: #f7f9fc; border-color: var(--line);
+    color: var(--ink); font-weight: 500; padding: 12px 14px;
+    display: flex; gap: 10px; align-items: baseline;
+  }
+  ul.opts li button:hover:not(:disabled) { background: #eef4fb; border-color: #b9cde6; }
+  ul.opts .letter {
+    font-weight: 700; color: var(--muted); min-width: 1.2em;
+  }
+  ul.opts li button.correct { background: var(--accent-soft); border-color: #8fcbaa; color: #14532d; }
+  ul.opts li button.wrong   { background: var(--bad-soft);    border-color: #e0a297; color: #7c2015; }
+  .feedback {
+    display: none; margin-top: 14px; padding: 12px 14px; border-radius: 8px;
+    font-size: .93rem; white-space: pre-wrap;
+  }
+  .feedback.good { display: block; background: var(--accent-soft); color: #14532d; border: 1px solid #b5dcc6; }
+  .feedback.bad  { display: block; background: var(--bad-soft);    color: #7c2015; border: 1px solid #e7b8ae; }
+  .fb-title { font-weight: 700; margin-bottom: 4px; }
+  /* ---- resultado ---- */
+  .score-big { font-size: 2.4rem; font-weight: 800; color: var(--accent); line-height: 1.1; }
+  .result-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px; margin-top: 8px;
+  }
+  .stat { background: #f7f9fc; border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+  .stat .k { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .stat .v { font-size: 1.25rem; font-weight: 700; }
+  .record-new { color: var(--accent); font-weight: 700; }
+  ol.review { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+  ol.review li {
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+    font-size: .9rem; background: #fbfcfe;
+  }
+  ol.review .mark { font-weight: 700; margin-right: 6px; }
+  ol.review .mark.ok  { color: var(--accent); }
+  ol.review .mark.err { color: var(--bad); }
+  ol.review .ans { color: var(--muted); }
+  details.help { margin-top: 16px; font-size: .88rem; color: var(--muted); }
+  details.help summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+  details.help pre { background: #f2f5f9; border: 1px solid var(--line); padding: 10px; overflow-x: auto; border-radius: 8px; }
+  footer.app {
+    margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <h1>Brasil em 5 Eixos — Preview do Motor</h1>
+    <span class="badge-dev">Painel dev · temporário</span>
+  </header>
+
+  <!-- Mensagens de carregamento / erros (sempre visível) -->
+  <div id="status" class="status" role="status">Carregando módulos…</div>
+
+  <!-- ===================== VIEW: SETUP ===================== -->
+  <section id="view-setup">
+    <div class="card">
+      <h2>Nova partida — modo solo</h2>
+      <label for="sel-theme">Tema</label>
+      <select id="sel-theme"></select>
+
+      <label for="sel-diff">Dificuldade</label>
+      <select id="sel-diff"></select>
+
+      <p class="muted" id="setup-info"></p>
+      <div class="row">
+        <button id="btn-start" class="btn-primary" disabled>Iniciar partida</button>
+        <span class="muted" id="best-solo"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Banco de questões oficial</h2>
+      <div id="bank-info" class="muted">Carregando…</div>
+    </div>
+
+    <!-- Fallback quando fetch() é bloqueado (ex.: file:// no Chrome) -->
+    <section id="manual-import" class="card" hidden>
+      <h2>Importar questions.json manualmente</h2>
+      <p class="muted">
+        A carga automática do banco falhou (normal ao abrir por <b>file://</b>, onde o
+        navegador bloqueia <code>fetch()</code>). Selecione o arquivo oficial
+        <code>brasil-quiz/data/questions.json</code> — ele será validado e adotado pela
+        API oficial <code>BQ5.bank.fromText()</code>. Nenhuma pergunta é embutida nesta página.
+      </p>
+      <input type="file" id="file-import" accept=".json,application/json">
+    </section>
+
+    <details class="help">
+      <summary>Como executar esta página</summary>
+      <pre>1) Na raiz do projeto (pasta com brasil-quiz/ e dev/):
+     python -m http.server 8000
+2) Abrir: http://localhost:8000/dev/engine-preview.html
+   (qualquer servidor HTTP local serve)
+
+Por que? bank.js usa fetch() para carregar data/questions.json,
+e o Chrome bloqueia fetch em páginas file://. Sem servidor, use o
+botão "Importar questions.json manualmente" acima.</pre>
+    </details>
+  </section>
+
+  <!-- ===================== VIEW: JOGO ===================== -->
+  <section id="view-game" hidden>
+    <div class="hud">
+      <span class="cell">Pergunta <b id="q-num">–</b></span>
+      <div class="timerbox" id="timerbox">
+        <div class="timerbar"><i id="timer-fill"></i></div>
+        <div class="muted" style="text-align:right"><span id="timer-secs">15</span>s restantes</div>
+      </div>
+      <span class="cell">Pontos: <b id="q-score">0</b> · Acertos: <b id="q-right">0</b></span>
+    </div>
+
+    <div class="card">
+      <div class="qmeta" id="q-badges"></div>
+      <p class="qtext" id="q-text"></p>
+      <ul class="opts" id="opts"></ul>
+
+      <div id="feedback" class="feedback"></div>
+
+      <div class="row">
+        <button id="btn-next" class="btn-primary" hidden></button>
+        <button id="btn-abort" class="btn-ghost">Sair da partida</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== VIEW: RESULTADO ===================== -->
+  <section id="view-result" hidden>
+    <div class="card">
+      <h2>Resultado da partida</h2>
+      <div class="score-big"><span id="res-score">0</span> pts</div>
+      <div class="result-grid">
+        <div class="stat"><div class="k">Acertos</div><div class="v" id="res-right">–</div></div>
+        <div class="stat"><div class="k">Aproveitamento</div><div class="v" id="res-pct">–</div></div>
+        <div class="stat"><div class="k">Recorde solo</div><div class="v" id="res-record">–</div></div>
+      </div>
+      <p id="res-record-note" class="muted"></p>
+
+      <h2 style="margin-top:18px">Revisão das respostas</h2>
+      <ol class="review" id="review-list"></ol>
+
+      <div class="row">
+        <button id="btn-new" class="btn-primary">Nova partida</button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="app">
+    Painel de desenvolvimento isolado — não é o index.html definitivo.
+    Regras, pontuação e persistência: exclusivamente via <code>BQ5.engine</code> +
+    <code>BQ5.storage</code>; questões: banco oficial <code>data/questions.json</code> via <code>BQ5.bank</code>.
+  </footer>
+
+</div>
+
+<!-- ============================================================
+     Módulos de produção — ordem exigida pelos próprios cabeçalhos:
+     config → util → storage → bank → engine. Nenhum deles é alterado
+     ou reimplementado aqui; a UI só consome BQ5.*.
+============================================================ -->
+<script src="../brasil-quiz/js/config.js"></script>
+<script src="../brasil-quiz/js/util.js"></script>
+<script src="../brasil-quiz/js/storage.js"></script>
+<script src="../brasil-quiz/js/bank.js"></script>
+<script src="../brasil-quiz/js/engine.js"></script>
+
+<script>
+/* ============================================================
+ * UI do preview (APENAS apresentação + chamadas à API pública).
+ * Nenhuma regra de jogo é calculada aqui: pontuação, tempo restante,
+ * pool, embaralhamento e finalização vêm de BQ5.engine. O único "relojo"
+ * desta página é o setInterval abaixo, que apenas lê engine.remainingMs()
+e dispara answer(-1) quando o tempo esgota — exatamente o papel da
+ * interface descrito no cabeçalho do engine.js.
+ * ============================================================ */
+(function () {
+  'use strict';
+
+  var $ = function (s) { return document.querySelector(s); };
+  var statusEl = $('#status');
+
+  function setStatus(kind, html) {
+    statusEl.className = 'status' + (kind ? ' ' + kind : '');
+    statusEl.innerHTML = html;
+  }
+  function errList(errors) {
+    return (errors || []).map(function (e) { return '• ' + e; }).join('<br>');
+  }
+
+  // ---------- verificação dos módulos ----------
+  if (typeof BQ5 === 'undefined') {
+    setStatus('err', '<b>Falha ao carregar os módulos JS.</b><br>' +
+      'Verifique se os arquivos <code>../brasil-quiz/js/*.js</code> existem e, de preferência,' +
+      ' abra esta página via servidor HTTP local (veja "Como executar" abaixo).');
+    var help = document.querySelector('details.help'); if (help) help.open = true;
+    return;
+  }
+  var missing = [];
+  ['config', 'util', 'storage', 'bank', 'engine'].forEach(function (m) {
+    if (!BQ5[m]) missing.push(m);
+  });
+  if (missing.length) {
+    setStatus('err', '<b>Módulos ausentes:</b> ' + missing.join(', ') +
+      '. Carregue config → util → storage → bank → engine nesta ordem.');
+    return;
+  }
+
+  var C = BQ5.config, U = BQ5.util, bank = BQ5.bank, engine = BQ5.engine;
+
+  // ---------- estado da UI (não é estado de jogo) ----------
+  var view = 'setup';        // 'setup' | 'game' | 'result'
+  var lastAnswer = null;     // último retorno de engine.answer()
+  var gameResult = null;     // resultado finalizado
+
+  function show(name) {
+    view = name;
+    $('#view-setup').hidden  = (name !== 'setup');
+    $('#view-game').hidden   = (name !== 'game');
+    $('#view-result').hidden = (name !== 'result');
+  }
+
+  // ---------- carga do banco oficial ----------
+  function handleBankRes(res) {
+    if (!res.ok) {
+      setStatus('err', '<b>Não foi possível carregar o banco de questões</b> (' + res.code + ').<br>' +
+        errList(res.errors));
+      $('#manual-import').hidden = false;
+      return;
+    }
+    var st = bank.stats(), meta = bank.meta();
+    var byTheme = Object.keys(st.byTheme).map(function (t) {
+      return C.themeLabels[t] + ': ' + st.byTheme[t];
+    }).join(' · ');
+    $('#bank-info').innerHTML =
+      '<b>' + st.total + ' questões</b> — ' + byTheme +
+      '<br>Versão: ' + (meta.version != null ? meta.version : 'n/d') +
+      ' · Origem: ' + (meta.source || 'n/d');
+    if (res.warnings && res.warnings.length) {
+      setStatus('warn', 'Banco carregado, com avisos:<br>' + errList(res.warnings));
+    } else {
+      setStatus('ok', 'Módulos e banco oficiais carregados. Inicie uma partida para testar o motor.');
+    }
+    $('#manual-import').hidden = true;
+    updateSetupInfo();
+  }
+
+  function loadOfficialBank() {
+    setStatus('', 'Módulos de produção carregados. Carregando o banco oficial (<code>data/questions.json</code>) via <code>BQ5.bank.load()</code>…');
+    var p = bank.load('../brasil-quiz/data/questions.json');
+    if (!p) { // ambiente sem fetch/Promise (não esperado em navegador)
+      handleBankRes({ ok: false, code: 'NO_FETCH', errors: ['fetch() indisponível neste ambiente'] });
+      return;
+    }
+    p.then(function (res) { handleBankRes(res); }, function () {
+      handleBankRes({ ok: false, code: 'FETCH', errors: ['falha inesperada na Promise de carga'] });
+    });
+  }
+
+  function onImportFile(file) {
+    if (!file) return;
+    setStatus('', 'Lendo "' + file.name + '" e validando via <code>BQ5.bank.fromText()</code>…');
+    var fr = new FileReader();
+    fr.onload = function () { handleBankRes(bank.fromText(String(fr.result)));
+      if (bank.loaded()) setStatus('ok', 'Banco adotado a partir do arquivo local: ' + bank.count() + ' questões.');
+    };
+    fr.onerror = function () {
+      handleBankRes({ ok: false, code: 'FETCH', errors: ['falha ao ler o arquivo selecionado'] });
+    };
+    fr.readAsText(file);
+  }
+
+  // ---------- setup ----------
+  function buildSelects() {
+    var th = $('#sel-theme'), df = $('#sel-diff');
+    th.innerHTML = '<option value="all">' + C.themeLabels.all + '</option>' +
+      C.themes.map(function (t) { return '<option value="' + t + '">' + U.esc(C.themeLabels[t]) + '</option>'; }).join('');
+    df.innerHTML = Object.keys(C.tierLabels).map(function (k) {
+      return '<option value="' + k + '">' + U.esc(C.tierLabels[k]) + '</option>';
+    }).join('');
+  }
+
+  function updateSetupInfo() {
+    $('#setup-info').textContent =
+      'Duração: ' + C.soloQuestionCount + ' perguntas · ' +
+      Math.round((C.questionTimeMs || 0) / 1000) + 's por pergunta (config.js).';
+    var best = BQ5.storage.getJSON(C.storageKeys.bestSolo, 0);
+    $('#best-solo').textContent = best > 0 ? ('Melhor marca solo atual: ' + best + ' pts') : '';
+    if (bank.loaded()) $('#btn-start').disabled = false;
+  }
+
+  // ---------- jogo ----------
+  function startGame() {
+    var res = engine.start({ mode: 'solo', theme: $('#sel-theme').value, diff: $('#sel-diff').value });
+    if (!res.ok) {
+      setStatus('err', '<b>engine.start falhou</b> (' + res.code + ').<br>' + errList(res.errors));
+      return;
+    }
+    lastAnswer = null; gameResult = null;
+    show('game');
+    renderQuestion();
+  }
+
+  function renderQuestion() {
+    var st = engine.state(), q = engine.question();
+    if (!st || !q) { setStatus('err', 'Sem partida ativa.'); return; }
+
+    $('#q-num').textContent = (st.index + 1) + ' de ' + st.total;
+    $('#q-score').textContent = String(st.score);
+    $('#q-right').textContent = String(st.right);
+
+    var basePts = (C.pointsBase || {})[q.d];
+    $('#q-badges').innerHTML =
+      '<span class="chip">' + U.esc(C.themeLabels[q.t] || q.t) + '</span>' +
+      '<span class="chip">' + U.esc(C.regionLabels[q.reg] || q.reg) + '</span>' +
+      '<span class="chip">dificuldade ' + q.d + (basePts != null ? ' · base ' + basePts + ' pts' : '') + '</span>';
+
+    $('#q-text').textContent = q.txt;
+
+    var optsEl = $('#opts');
+    optsEl.innerHTML = '';
+    for (var i = 0; i < q.o.length; i++) {
+      (function (idx) {
+        var li = document.createElement('li');
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.innerHTML = '<span class="letter">' + 'ABCD'[idx] + '</span><span>' + U.esc(q.o[idx]) + '</span>';
+        b.addEventListener('click', function () { onOption(idx); });
+        li.appendChild(b);
+        optsEl.appendChild(li);
+      })(i);
+    }
+
+    var fb = $('#feedback');
+    fb.className = 'feedback'; fb.innerHTML = '';
+    $('#btn-next').hidden = true;
+    lastAnswer = null;
+    updateTimerUI(engine.remainingMs());
+  }
+
+  function onOption(i) {
+    var st = engine.state();
+    if (!st || st.locked || st.finished) return;
+    applyAnswer(engine.answer(i));
+  }
+
+  // Caminho do timeout: a interface decide quando chamar answer(-1)
+  // (regra documentada no cabeçalho do engine.js).
+  function onTimeout() {
+    var st = engine.state();
+    if (!st || st.locked || st.finished) return;
+    applyAnswer(engine.answer(-1));
+  }
+
+  function applyAnswer(res) {
+    if (!res.ok) {
+      setStatus('err', '<b>engine.answer falhou</b> (' + res.code + ').<br>' + errList(res.errors));
+      return;
+    }
+    lastAnswer = res;
+    if (res.correct) U.soundGood(); else U.soundBad();
+
+    var q = engine.question();
+    var btns = $('#opts').querySelectorAll('button');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].disabled = true;
+      if (i === q.a) btns[i].classList.add('correct');
+      else if (!res.correct && res.review.choice === i) btns[i].classList.add('wrong');
+    }
+
+    var fb = $('#feedback');
+    var title, body = [];
+    if (res.timedOut) {
+      title = '⏰ Tempo esgotado!';
+      body.push('A resposta correta era: <b>' + U.esc(q.o[q.a]) + '</b>');
+    } else if (res.correct) {
+      title = '✔ Correta! +' + res.points + ' ponto(s).';
+    } else {
+      title = '✘ Errada.';
+      body.push('A resposta correta era: <b>' + U.esc(q.o[q.a]) + '</b>');
+    }
+    if (q.e) body.push('<span class="fb-title">Explicação:</span> ' + U.esc(q.e));
+    fb.className = 'feedback ' + (res.correct ? 'good' : 'bad');
+    fb.innerHTML = '<div class="fb-title">' + title + '</div>' + body.join('<br>');
+
+    var st = engine.state();
+    $('#q-score').textContent = String(st.score);
+    $('#q-right').textContent = String(st.right);
+
+    var nb = $('#btn-next');
+    nb.textContent = res.last ? 'Concluir e ver resultado' : 'Próxima pergunta';
+    nb.hidden = false;
+  }
+
+  function onNext() {
+    var st = engine.state();
+    if (!st || !st.locked) return;
+    var res = engine.next();
+    if (!res.ok) {
+      setStatus('err', '<b>engine.next falhou</b> (' + res.code + ').<br>' + errList(res.errors));
+      return;
+    }
+    if (res.finished) {
+      gameResult = res.result;
+      show('result');
+      renderResult();
+    } else {
+      lastAnswer = null;
+      renderQuestion();
+    }
+  }
+
+  function onAbort() {
+    engine.abort(); // descarta a partida sem persistir (regra do motor)
+    lastAnswer = null; gameResult = null;
+    show('setup');
+    updateSetupInfo();
+    setStatus('warn', 'Partida encerrada e descartada — nada foi persistido.');
+  }
+
+  // ---------- resultado ----------
+  function renderResult() {
+    var r = gameResult || engine.result();
+    if (!r) { setStatus('err', 'Sem resultado disponível.'); return; }
+    $('#res-score').textContent = String(r.score);
+    $('#res-right').textContent = r.right + ' / ' + r.total;
+    $('#res-pct').textContent = (typeof r.pct === 'number' ? r.pct : 0) + '%';
+
+    var recEl = $('#res-record'), note = $('#res-record-note');
+    if (r.record) {
+      recEl.textContent = String(r.record.best);
+      if (r.record.best > r.record.prev) {
+        recEl.innerHTML += ' <span class="record-new">★ novo!</span>';
+        note.textContent = 'Novo recorde no modo solo.';
+      } else {
+        note.textContent = 'Recorde anterior mantido (' + r.record.prev + ' pts).';
+      }
+    } else { recEl.textContent = '–'; note.textContent = ''; }
+
+    var ol = $('#review-list');
+    ol.innerHTML = '';
+    (r.review || []).forEach(function (entry, idx) {
+      var qe = entry.q;
+      var li = document.createElement('li');
+      var yours = entry.choice === -1 ? 'tempo esgotado' : qe.o[entry.choice];
+      li.innerHTML =
+        '<span class="mark ' + (entry.ok ? 'ok">✔' : 'err">✘') + '</span>' +
+        (idx + 1) + '. ' + U.esc(qe.txt) +
+        '<br><span class="ans">Sua resposta: ' + U.esc(yours) +
+        (entry.ok ? '' : ' · Correta: ' + U.esc(qe.o[qe.a])) + '</span>' +
+        (qe.e ? '<br><span class="ans">' + U.esc(qe.e) + '</span>' : '');
+      ol.appendChild(li);
+    });
+  }
+
+  // ---------- relógio da UI (lê engine.remainingMs; não é regra de jogo) ----------
+  function updateTimerUI(rem) {
+    if (rem == null) return;
+    var total = C.questionTimeMs || 15000;
+    $('#timer-fill').style.width = Math.max(0, Math.min(100, (rem / total) * 100)) + '%';
+    $('#timer-secs').textContent = String(Math.ceil(rem / 1000));
+    $('#timerbox').classList.toggle('low', rem <= 5000);
+  }
+
+  function tick() {
+    if (view !== 'game') return;
+    var st = engine.state();
+    if (!st || st.finished) return;
+    if (st.locked) return; // barra congelada após a resposta
+    updateTimerUI(engine.remainingMs());
+    if (engine.remainingMs() <= 0) onTimeout();
+  }
+
+  // ---------- inicialização ----------
+  buildSelects();
+  updateSetupInfo();
+  $('#btn-start').addEventListener('click', startGame);
+  $('#btn-next').addEventListener('click', onNext);
+  $('#btn-abort').addEventListener('click', onAbort);
+  $('#btn-new').addEventListener('click', function () { show('setup'); updateSetupInfo(); });
+  $('#file-import').addEventListener('change', function (e) { onImportFile(e.target.files[0]); });
+  setInterval(tick, 200);
+  loadOfficialBank();
+})();
+</script>
+</body>
+</html>
