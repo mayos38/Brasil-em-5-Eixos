@@ -1,1 +1,1 @@
-qWen: Esta pasta deve ser desconsiderada nos prompts, a não ser que foi pedida explicitamente para criar um index temporário; para protótipos, considere o .html da pasta mãe do projeto.
+pasta de testes.
