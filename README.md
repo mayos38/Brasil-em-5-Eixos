@@ -1,8 +1,8 @@
 # Brasil em 5 Eixos
 
-Um jogo de perguntas e respostas dedicado à Geografia do Brasil. A proposta é explorar diferentes aspectos do território brasileiro por meio de desafios, combinando conteúdo geográfico, progressão de dificuldade e uma experiência de jogo acessível — especialmente em dispositivos móveis.
+É um jogo de perguntas e respostas dedicado à Geografia do Brasil. A proposta é explorar diferentes aspectos do território brasileiro por meio de desafios, combinando conteúdo geográfico, progressão de dificuldade e uma experiência de jogo acessível — especialmente em dispositivos móveis.
 
-O projeto está em desenvolvimento e passa por uma construção modular: cada parte do jogo tem responsabilidades próprias, testes específicos e documentação para facilitar a manutenção e a expansão.
+O projeto está em desenvolvimento e passa por uma construção modular: cada parte do jogo tem seu módulo específico, com testes artificiais específicos e documentação para facilitar a manutenção e a expansão.
 
 ## A proposta
 
@@ -11,10 +11,11 @@ O Brasil é abordado a partir de cinco eixos temáticos:
 * **Cultura** — manifestações culturais, patrimônio, identidade e diversidade brasileira.
 * **Economia** — atividades produtivas, circulação, trabalho e organização econômica do território.
 * **Animais** — fauna brasileira e suas relações com os diferentes ambientes.
-* **Vegetação** — formações vegetais, biomas e características ambientais. O clima aparece como assunto relacionado a este eixo, não como um sexto eixo selecionável.
+* **Vegetação** — formações vegetais, biomas e características ambientais: Biogeografia por essência. O clima aparece como um sub assunto relacionado a este eixo, não como um sexto eixo selecionável - Troca de nome do eixo em versão futura.
 * **Cidades** — urbanização, população, redes urbanas e organização do espaço urbano.
 
 A intenção é transformar esses conteúdos em uma experiência interativa, na qual o jogador possa testar o que sabe, reconhecer a diversidade regional do país e aprender também ao revisar as respostas e suas explicações. O jogo foi pensado como um recurso lúdico que pode apoiar atividades educativas, sem se limitar a um formato de avaliação tradicional.
+Também tem o propósito de ser um jogo divertido para aqueles que procuram algo casual, seja adquirindo conhecimentos novos, competindo ou passando o tempo.
 
 **Testar o jogo:** [Abrindo a prévia](https://mayos38.github.io/Brasil-em-5-Eixos/dev/integrated-preview.html)
 
@@ -26,7 +27,7 @@ Entre os recursos já implementados estão:
 
 * Banco de questões externo em JSON, organizado por eixo e dificuldade.
 * Quatro níveis de dificuldade, incluindo **Geógrafo**.
-* Tempo de resposta variável conforme a dificuldade.
+* Tempo de resposta varia conforme a dificuldade.
 * Pontuação base e bônus limitado por rapidez.
 * Embaralhamento das alternativas sem perder a correspondência com o gabarito.
 * Controle para evitar repetição de questões dentro da partida.
@@ -41,6 +42,8 @@ Entre os recursos já implementados estão:
 O banco oficial está em `brasil-quiz/data/questions.json` e, no registro de desenvolvimento de 18 de novembro de 2026, contém **508 questões** distribuídas entre os cinco eixos e quatro níveis de dificuldade.
 
 O número de questões é consultado dinamicamente pelo próprio sistema. Portanto, 508 é a quantidade registrada nessa versão do banco, não um valor fixo usado pelas regras do jogo. O arquivo JSON é a fonte única dos enunciados e não deve ser duplicado em outros módulos.
+
+A respeito da curadoria do banco, ela está sendo revisada por um acadêmico da área de Geografia, para a veracidade dos fatos, em especial, das dificuldade "Geógrafo"
 
 ## Estrutura técnica
 
@@ -72,7 +75,7 @@ O projeto não depende de um framework JavaScript ou de um processo de build par
 |M10 — Partida|Apresentação das perguntas, seleção, confirmação, cronômetro e feedback.|
 |M11 — Resultados|Desempenho, revisão das respostas, histórico e replay solo.|
 
-A arquitetura prevê ainda módulos próprios para campanha, multiplayer e inicialização final da aplicação. Eles estão identificados como etapas futuras no estado atual do projeto.
+A arquitetura prevê ainda módulos próprios para campanha, multiplayer e inicialização final da aplicação. Eles estão identificados como etapas futuras no estado atual do projeto, em fase de amadurecimento de idéias, especialmente a campanha e o modo multiplayer.
 
 ## Executar a prévia integrada
 
@@ -115,10 +118,9 @@ Os resultados e as pendências de cada etapa são acompanhados separadamente na 
 **Em desenvolvimento / etapas futuras:**
 
 * **Campanha:** percurso pelas cinco regiões brasileiras, com progressão própria.
-* **Multiplayer local:** partidas entre jogadores no mesmo aparelho, incluindo o modo 1×1.
-* **Multiplayer em rede:** salas e partidas por LAN/WebRTC.
-* **Integração final:** inicialização e conexão definitiva de todos os módulos, substituindo as ferramentas intermediárias de prévia.
-
+* **Multiplayer local:** partidas entre jogadores, incluindo o modo 1×1; a expectativa atual é de que seja possível por meio da mesma rede de Wi-fi/Lan. Também terá jogabilidade diferente tanto do modo solo, quanto do modo campanha.
+* **Integração final:** inicialização e conexão definitiva de todos os módulos, substituindo as ferramentas intermediárias de prévia, que estão disponíveis para testes da fase atual.
+* **Personagens para personalização e individualização dos jogadores, com mascotes desbloqueáveis através de marcos (como conquistas da Campanha)
 A interface e a arquitetura seguem uma direção **mobile-first**: a experiência deve funcionar bem em telas pequenas e também se adaptar a telas maiores. 
 O projeto ainda não deve ser considerado uma versão final. A implementação dos módulos e a validação integrada em navegador e dispositivos continuam fazendo parte do desenvolvimento.
 
