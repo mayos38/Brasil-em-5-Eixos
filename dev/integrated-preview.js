@@ -1,280 +1,232 @@
 /* ============================================================
  * Brasil em 5 Eixos — M15 INTERMEDIÁRIO · preview integrado (DEV)
- * Arquivo : dev/integrated-preview.js   |   Carregado por: dev/integrated-preview.html
  *
- * Responsabilidade (bootstrap provisório do Módulo 15, apenas para testes):
- *   1. Busca a interface REAL (brasil-quiz/index.html) via fetch — sem cópias;
- *   2. Injeta o conteúdo real no documento e executa os módulos reais na ordem
- *      de dependência (js/config.js → util → storage → bank → engine → ui → telas);
- *   3. Tela boot: data-state="loading" durante a carga do banco;
- *   4. Carrega o banco REAL data/questions.json via BQ5.bank.load();
- *   5. Sucesso -> BQ5.screens.menu.show() (menu aparece automaticamente);
- *      Falha   -> #screen-boot[data-state="error"] com detalhes, ação retry-boot
- *                 e importação manual opcional via BQ5.bank.fromText.
- *
- * NÃO reimplementa motor, regras, pontuação, cronômetro, telas ou persistência.
- * Sem pausa (não existe no projeto). Sem M12–M14. Sem async/await.
+ * Carrega a interface real de brasil-quiz/index.html, injeta o corpo,
+ * executa os scripts src em ordem e então carrega o banco oficial.
+ * Inclui a verificação do M12; M13/M14 e o M15 final continuam pendentes.
+ * Não duplica regras do motor, questões, cronômetro ou persistência.
+ * Não existe pausa.
  * ============================================================ */
 (function (global) {
   'use strict';
-
-  if (!global.document || global.__BQ5_IP_BOOTED__) return; // evita inicialização duplicada
+  if (!global.document || global.__BQ5_IP_BOOTED__) return;
   global.__BQ5_IP_BOOTED__ = true;
 
   var doc = global.document;
   var SHELL_URL = '../brasil-quiz/index.html';
   var BANK_URL = '../brasil-quiz/data/questions.json';
+  var loader = doc.getElementById('dev-loader');
+  var booting = false;
 
-  function log(msg) { if (global.console && typeof global.console.info === 'function') global.console.info('[M15 preview] ' + msg); }
-  function failLog(msg) { if (global.console && typeof global.console.error === 'function') global.console.error('[M15 preview] ' + msg); }
-
-  function el(id) { try { return doc.getElementById ? doc.getElementById(id) : null; } catch (e) { return null; } }
-  function clearNode(node) { if (!node || typeof node.removeChild !== 'function') return; while (node.firstChild) node.removeChild(node.firstChild); }
-  function makeText(tag, text) { var n = doc.createElement(tag); try { n.textContent = String(text == null ? '' : text); } catch (e) {} return n; }
-
-  // ---------- loader próprio (antes da interface real existir / em falha fatal) ----------
-  var loaderEl = el('dev-loader');
-
-  function setLoaderFatal(res) {
-    failLog((res && res.errors ? res.errors.join(' | ') : 'falha desconhecida'));
-    if (!loaderEl) return;
-    try {
-      clearNode(loaderEl);
-      loaderEl.className = 'bq5ip-loader bq5ip-loader--error';
-      if (loaderEl.style) loaderEl.style.display = '';
-      var errors = (res && Array.isArray(res.errors)) ? res.errors : ['erro desconhecido'];
-      loaderEl.appendChild(makeText('h1', 'Não foi possível carregar o preview integrado'));
-      loaderEl.appendChild(makeText('p', 'O preview depende de um servidor HTTP local: a interface real e o banco oficial são carregados via fetch().'));
-      var ul = doc.createElement('ul');
-      for (var i = 0; i < errors.length; i++) ul.appendChild(makeText('li', errors[i]));
-      loaderEl.appendChild(ul);
-      loaderEl.appendChild(makeText('p', 'Como executar: na raiz do projeto (a pasta que contém brasil-quiz/ e dev/) rode  python -m http.server 8000  e abra  http://localhost:8000/dev/integrated-preview.html'));
-    } catch (e) { failLog('setLoaderFatal: ' + String((e && e.message) || e)); }
+  function log(message) {
+    if (global.console && typeof global.console.info === 'function') global.console.info('[M15 preview] ' + message);
+  }
+  function errorLog(message) {
+    if (global.console && typeof global.console.error === 'function') global.console.error('[M15 preview] ' + message);
+  }
+  function el(id) { return doc.getElementById(id); }
+  function textNode(tag, value) {
+    var node = doc.createElement(tag);
+    node.textContent = String(value == null ? '' : value);
+    return node;
+  }
+  function clear(node) {
+    if (!node) return;
+    while (node.firstChild) node.removeChild(node.firstChild);
+  }
+  function fatal(errors) {
+    errors = Array.isArray(errors) && errors.length ? errors : ['Falha desconhecida.'];
+    errorLog(errors.join(' | '));
+    if (!loader) return;
+    clear(loader);
+    loader.className = 'bq5ip-loader bq5ip-loader--error';
+    loader.appendChild(textNode('h1', 'Não foi possível carregar o preview integrado'));
+    loader.appendChild(textNode('p', 'A interface e o banco são carregados por fetch(). Execute o projeto por um servidor HTTP local, não por file://.'));
+    var list = doc.createElement('ul');
+    errors.forEach(function (message) { list.appendChild(textNode('li', message)); });
+    loader.appendChild(list);
+    loader.appendChild(textNode('p', 'Na raiz do projeto, execute: python -m http.server 8000. Depois abra http://localhost:8000/dev/integrated-preview.html.'));
+    loader.style.display = '';
   }
 
-  // ---------- 1. carga da interface real ----------
   function fetchShell() {
-    if (typeof global.fetch !== 'function') {
-      return Promise.resolve({ ok: false, code: 'NO_FETCH', errors: ['fetch() não está disponível neste navegador/contexto.'] });
-    }
-    var p;
-    try { p = global.fetch(SHELL_URL); } catch (e) {
-      return Promise.resolve({ ok: false, code: 'FETCH', errors: [String((e && e.message) || e)] });
-    }
-    if (!p || typeof p.then !== 'function') return Promise.resolve({ ok: false, code: 'FETCH', errors: ['fetch() não retornou uma Promise'] });
-    return p.then(function (r) {
-      var status = r && typeof r.status === 'number' ? r.status : 0;
-      if (!r || !r.ok) return { ok: false, code: 'HTTP', status: status, errors: ['falha HTTP ao carregar a interface real (status ' + status + ')'] };
-      return r.text().then(function (txt) { return { ok: true, html: txt }; }, function (e) {
-        return { ok: false, code: 'READ', errors: ['não foi possível ler o texto da resposta: ' + String((e && e.message) || e)] };
-      });
-    }, function (e) {
-      return { ok: false, code: 'FETCH', errors: [String((e && e.message) || e)] };
+    if (typeof global.fetch !== 'function') return Promise.reject(new Error('fetch() não está disponível neste navegador.'));
+    return global.fetch(SHELL_URL).then(function (response) {
+      if (!response || !response.ok) throw new Error('Falha HTTP ao buscar index.html (status ' + (response ? response.status : 'desconhecido') + ').');
+      return response.text();
     });
   }
 
   function injectShell(html) {
     var parsed;
     try { parsed = new global.DOMParser().parseFromString(String(html), 'text/html'); }
-    catch (e) { return { ok: false, errors: ['falha ao interpretar o HTML da interface real: ' + String((e && e.message) || e)] }; }
-    var pBody = parsed && parsed.body;
-    if (!pBody || !pBody.childNodes) return { ok: false, errors: ['interface real sem <body> reconhecível'] };
+    catch (error) { throw new Error('Não foi possível interpretar brasil-quiz/index.html: ' + error.message); }
+    if (!parsed.body || !parsed.body.childNodes) throw new Error('A interface real não possui um body válido.');
 
-    // snapshot primeiro (a lista childNodes é viva — mover durante a iteração saltaria nós)
-    var total = pBody.childNodes.length;
     var nodes = [];
-    for (var i = 0; i < total; i++) nodes.push(pBody.childNodes[i]);
-
+    for (var i = 0; i < parsed.body.childNodes.length; i++) nodes.push(parsed.body.childNodes[i]);
     var scripts = [];
-    for (var j = 0; j < nodes.length; j++) {
-      var node = nodes[j];
-      if (!node || node.nodeType !== 1) continue; // texto/comentários não são necessários
+    nodes.forEach(function (node) {
+      if (!node || node.nodeType !== 1) return;
       if (/^script$/i.test(node.nodeName)) {
-        var inline = typeof node.textContent === 'string' ? node.textContent.replace(/\s/g, '') : '';
-        if (inline) return { ok: false, errors: ['script inline encontrado em index.html — este preview só suporta <script src>'] };
-        var srcAttr = null;
-        try { srcAttr = node.getAttribute('src'); } catch (e2) {}
-        if (srcAttr && String(srcAttr).trim()) scripts.push(String(srcAttr).trim()); // ordem original preservada
-      } else if (/^noscript$/i.test(node.nodeName)) {
-        continue; // a página dev já tem o próprio <noscript>
-      } else {
-        try { doc.body.appendChild(node); } catch (e3) {} // move para o documento vivo
+        if (String(node.textContent || '').replace(/\s/g, '')) throw new Error('O preview aceita apenas scripts externos <script src>, não scripts inline.');
+        var src = node.getAttribute('src');
+        if (src && src.trim()) scripts.push(src.trim());
+      } else if (!/^noscript$/i.test(node.nodeName)) {
+        doc.body.appendChild(node);
       }
-    }
-
-    if (parsed && parsed.title && typeof doc.title !== 'undefined') { try { doc.title = String(parsed.title); } catch (e4) {} }
-    if (loaderEl && loaderEl.style) { try { loaderEl.style.display = 'none'; } catch (e5) {} }
-    return { ok: true, scripts: scripts };
+    });
+    if (parsed.title) doc.title = parsed.title;
+    if (loader) loader.style.display = 'none';
+    return scripts;
   }
 
-  // ---------- 2. módulos reais na ordem de dependência ----------
   function resolveSrc(src) {
-    var s = String(src).trim();
-    if (s.indexOf('js/') === 0) return '../brasil-quiz/' + s; // js/config.js -> ../brasil-quiz/js/config.js
-    return s; // ex.: '../dev/ui-preview.js' já resolve corretamente a partir de dev/
+    src = String(src).trim();
+    return src.indexOf('js/') === 0 ? '../brasil-quiz/' + src : src;
   }
 
   function loadScripts(scripts) {
     var chain = Promise.resolve();
-    for (var i = 0; i < scripts.length; i++) {
-      (function (src) {
-        chain = chain.then(function () {
-          return new Promise(function (resolve, reject) {
-            try {
-              var s = doc.createElement('script');
-              s.src = src;
-              s.onload = function () { resolve(true); };
-              s.onerror = function () { reject(new Error('falha ao carregar o script ' + src)); };
-              (doc.head || doc.body).appendChild(s);
-            } catch (e) { reject(e); }
-          });
+    scripts.forEach(function (src) {
+      chain = chain.then(function () {
+        return new Promise(function (resolve, reject) {
+          var script = doc.createElement('script');
+          script.src = resolveSrc(src);
+          script.onload = function () { resolve(true); };
+          script.onerror = function () { reject(new Error('Falha ao carregar ' + script.src)); };
+          (doc.head || doc.body).appendChild(script);
         });
-      })(resolveSrc(scripts[i])); // carregamento sequencial => ordem de dependência garantida
-    }
+      });
+    });
     return chain;
-  }
-
-  // ---------- 3. bootstrap M15 intermediário: boot -> banco real -> menu ----------
-  var booting = false;
-
-  function missingModules() {
-    var missing = [];
-    if (!global.BQ5) return ['BQ5 (nenhum módulo foi carregado)'];
-    var bases = ['config', 'util', 'storage', 'bank', 'engine', 'ui'];
-    for (var i = 0; i < bases.length; i++) if (!global.BQ5[bases[i]]) missing.push('BQ5.' + bases[i]);
-    var screens = global.BQ5.screens || {};
-    var names = ['menu', 'setup', 'play', 'results'];
-    for (var j = 0; j < names.length; j++) if (!screens[names[j]]) missing.push('BQ5.screens.' + names[j]);
-    return missing;
   }
 
   function setBoot(state, details) {
     var screen = el('screen-boot');
-    if (!screen || typeof screen.setAttribute !== 'function') return false;
-    try { screen.setAttribute('data-state', state); } catch (e) { return false; }
-    var list = el('boot-error-details'); // contrato: um <li> por detalhe, via textContent
-    if (list && typeof list.appendChild === 'function') {
-      clearNode(list);
-      var items = Array.isArray(details) ? details : [String(details == null ? 'erro desconhecido' : details)];
-      for (var i = 0; i < items.length; i++) list.appendChild(makeText('li', items[i]));
+    if (!screen) return;
+    screen.setAttribute('data-state', state);
+    var list = el('boot-error-details');
+    if (list) {
+      clear(list);
+      (Array.isArray(details) ? details : details ? [details] : []).forEach(function (item) {
+        list.appendChild(textNode('li', item));
+      });
     }
-    return true;
   }
 
   function addImportControl() {
-    var errBlock = el('boot-error');
-    if (!errBlock || typeof errBlock.appendChild !== 'function') return;
-    try { // remove controles antigos => sem listeners duplicados
-      var old = errBlock.querySelectorAll ? errBlock.querySelectorAll('.bq5ip-import') : [];
-      for (var i = 0; i < old.length; i++) if (old[i] && old[i].parentNode === errBlock) errBlock.removeChild(old[i]);
-    } catch (e) {}
-    var retryBtn = el('boot-retry');
+    var block = el('boot-error');
+    if (!block || block.querySelector('.bq5ip-import')) return;
     var wrap = doc.createElement('div');
     wrap.className = 'bq5ip-import';
-    try { wrap.style.margin = '10px 0'; } catch (e) {}
-    var label = makeText('span', 'Alternativa se o JSON não foi encontrado: importar manualmente via BQ5.bank.fromText — ');
+    wrap.style.margin = '10px 0';
+    wrap.appendChild(textNode('p', 'Alternativa: importe manualmente o arquivo data/questions.json.'));
     var input = doc.createElement('input');
-    try { input.type = 'file'; input.accept = '.json,application/json'; } catch (e) {}
-    var btn = makeText('button', 'Importar questions.json');
-    try { btn.type = 'button'; } catch (e) {}
-    wrap.appendChild(label); wrap.appendChild(input); wrap.appendChild(btn);
-    if (typeof global.FileReader === 'function' && typeof input.addEventListener === 'function') {
-      function doImport() {
-        var file = input.files && input.files[0];
-        if (!file) { global.BQ5.ui.toast('Selecione o arquivo questions.json primeiro.', 'error'); return; }
-        log('importação manual via BQ5.bank.fromText…');
-        var reader = new global.FileReader();
-        reader.onload = function () {
-          var res = global.BQ5.bank.fromText(String(reader.result));
-          if (res && res.ok === true) {
-            log('banco importado manualmente: ' + res.count + ' questões.');
-            var shown = global.BQ5.screens.menu.show();
-            if (!shown || shown.ok === false) showBootError(['falha ao exibir o menu real após a importação']);
-          } else {
-            showBootError(res && Array.isArray(res.errors) ? res.errors : ['importação manual falhou']);
-          }
-        };
-        reader.onerror = function () { showBootError(['não foi possível ler o arquivo selecionado']); };
-        try { reader.readAsText(file); } catch (e) { showBootError(['erro ao ler o arquivo: ' + String((e && e.message) || e)]); }
-      }
-      btn.addEventListener('click', doImport);
-    } else {
-      try { wrap.setAttribute('data-unavailable', 'true'); } catch (e) {}
-    }
-    if (typeof errBlock.insertBefore === 'function') errBlock.insertBefore(wrap, retryBtn || null);
-    else errBlock.appendChild(wrap);
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    var button = textNode('button', 'Importar banco JSON');
+    button.type = 'button';
+    button.className = 'bq5-btn bq5-btn--secondary';
+    button.addEventListener('click', function () {
+      var file = input.files && input.files[0];
+      if (!file) { global.BQ5.ui.toast('Selecione o arquivo questions.json.', 'error'); return; }
+      var reader = new global.FileReader();
+      reader.onload = function () {
+        var result = global.BQ5.bank.fromText(String(reader.result));
+        if (result && result.ok) {
+          var shown = global.BQ5.screens.menu.show();
+          if (!shown || !shown.ok) setBoot('error', ['Banco importado, mas o menu não pôde ser exibido.']);
+        } else setBoot('error', result && result.errors ? result.errors : ['Falha ao importar questions.json.']);
+      };
+      reader.onerror = function () { setBoot('error', ['Não foi possível ler o arquivo selecionado.']); };
+      reader.readAsText(file);
+    });
+    wrap.appendChild(input);
+    wrap.appendChild(button);
+    var retry = el('boot-retry');
+    block.insertBefore(wrap, retry || null);
   }
 
-  function showBootError(details) { setBoot('error', details); addImportControl(); }
+  function showBootError(details) {
+    setBoot('error', details);
+    addImportControl();
+  }
+
+  function missingModules() {
+    var missing = [];
+    var bq = global.BQ5;
+    if (!bq) return ['BQ5: os módulos não foram carregados.'];
+    ['config', 'util', 'storage', 'bank', 'engine', 'ui'].forEach(function (name) {
+      if (!bq[name]) missing.push('BQ5.' + name);
+    });
+    var screens = bq.screens || {};
+    ['menu', 'setup', 'play', 'results', 'campaign'].forEach(function (name) {
+      if (!screens[name]) missing.push('BQ5.screens.' + name);
+    });
+    return missing;
+  }
 
   function bindRetry() {
-    var ui = global.BQ5.ui;
-    if (!ui || typeof ui.onAction !== 'function') return;
-    if (typeof ui.hasListeners === 'function' && ui.hasListeners('action:retry-boot')) return; // evita listener duplicado
-    ui.onAction('retry-boot', function () { log('nova tentativa de carga do banco…'); loadBank(); });
+    var api = global.BQ5 && global.BQ5.ui;
+    if (!api || typeof api.onAction !== 'function') return;
+    if (typeof api.hasListeners === 'function' && api.hasListeners('action:retry-boot')) return;
+    api.onAction('retry-boot', loadBank);
   }
 
   function loadBank() {
-    var bank = global.BQ5 && global.BQ5.bank;
-    if (!bank || typeof bank.load !== 'function') { showBootError(['BQ5.bank ausente ou sem load() — verifique a carga dos módulos.']); return; }
-    if (booting) return; // evita dupla carga simultânea
+    var api = global.BQ5 && global.BQ5.bank;
+    if (!api || typeof api.load !== 'function') { showBootError(['BQ5.bank.load() não está disponível.']); return; }
+    if (booting) return;
     booting = true;
     setBoot('loading');
-    log('carregando banco real: ' + BANK_URL);
-    var p;
-    try { p = bank.load(BANK_URL); } catch (e) {
+    log('Carregando banco oficial: ' + BANK_URL);
+    var request;
+    try { request = api.load(BANK_URL); }
+    catch (error) {
       booting = false;
-      showBootError(['erro ao invocar BQ5.bank.load(): ' + String((e && e.message) || e)]);
+      showBootError(['Erro ao chamar bank.load(): ' + error.message]);
       return;
     }
-    if (!p || typeof p.then !== 'function') {
+    if (!request || typeof request.then !== 'function') {
       booting = false;
-      showBootError(['BQ5.bank.load() não retornou uma Promise neste ambiente.']);
+      showBootError(['bank.load() não retornou uma Promise.']);
       return;
     }
-    p.then(function (res) {
-      booting = false; // load() sempre resolve com resultado estruturado
-      if (res && res.ok === true) {
-        log('banco carregado: ' + res.count + ' questões.');
-        if (global.BQ5.ui && typeof global.BQ5.ui.toast === 'function' && res.warnings && res.warnings.length) {
-          global.BQ5.ui.toast('Banco carregado com ' + res.warnings.length + ' aviso(es) de validação.', 'info');
-        }
-        // Requisito: o menu principal aparece automaticamente após a inicialização bem-sucedida.
+    request.then(function (result) {
+      booting = false;
+      if (result && result.ok) {
+        log('Banco carregado: ' + result.count + ' questões.');
         var shown = global.BQ5.screens.menu.show();
-        if (!shown || shown.ok === false) showBootError(['falha ao exibir o menu real: código ' + (shown && shown.code || 'desconhecido')]);
+        if (!shown || !shown.ok) showBootError(['O banco carregou, mas o menu não pôde ser exibido.']);
       } else {
         var details = [];
-        if (res && res.code) details.push('código de erro: ' + res.code + (res.status ? ' (HTTP ' + res.status + ')' : ''));
-        if (res && Array.isArray(res.errors)) details = details.concat(res.errors);
-        showBootError(details.length ? details : ['falha desconhecida ao carregar o banco']);
+        if (result && result.code) details.push('Código: ' + result.code);
+        if (result && Array.isArray(result.errors)) details = details.concat(result.errors);
+        showBootError(details.length ? details : ['Não foi possível carregar o banco oficial.']);
       }
-    }, function (e) { // defensividade — load() não deve rejeitar
+    }, function (error) {
       booting = false;
-      showBootError(['erro inesperado da Promise do banco: ' + String((e && e.message) || e)]);
+      showBootError(['Erro inesperado ao carregar o banco: ' + error.message]);
     });
   }
 
   function boot() {
     var missing = missingModules();
-    if (missing.length) { showBootError(['módulo(s) ausente(s): ' + missing.join(', ')]); return false; }
+    if (missing.length) { showBootError(['Módulo(s) ausente(s): ' + missing.join(', ')]); return; }
     bindRetry();
-    log('bootstrap M15 (intermediário) pronto — carregando o banco real…');
     loadBank();
-    return true;
   }
 
-  // API exposta para testes/debug (o jogo em si não a usa).
   global.__BQ5_IP__ = { loadBank: loadBank, setBoot: setBoot, resolveSrc: resolveSrc, boot: boot };
-
-  log('iniciando preview integrado…');
-  fetchShell().then(function (res) {
-    if (!res || !res.ok) { setLoaderFatal(res); return; }
-    var inj = injectShell(res.html);
-    if (!inj.ok) { setLoaderFatal({ errors: inj.errors }); return; }
-    log('interface real injetada; carregando ' + inj.scripts.length + ' módulos na ordem de dependência…');
-    loadScripts(inj.scripts).then(function () {
-      log('módulos reais carregados. Executando bootstrap M15 (intermediário)…');
-      boot();
-    }, function (e) { setLoaderFatal({ errors: [String((e && e.message) || e)] }); });
+  log('Iniciando preview integrado M1–M12.');
+  fetchShell().then(function (html) {
+    var scripts = injectShell(html);
+    log('Interface injetada; carregando ' + scripts.length + ' scripts na ordem declarada.');
+    return loadScripts(scripts);
+  }).then(function () {
+    boot();
+  }).catch(function (error) {
+    fatal([String(error && error.message || error)]);
   });
 })(globalThis);

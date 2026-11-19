@@ -8,7 +8,7 @@
   PREVIEW INTEGRADO — MÓDULO 15 INTERMEDIÁRIO (apenas para testes de interface)
 
   O que é: carrega a INTERFACE REAL (brasil-quiz/index.html, sem cópias) e os
-  módulos reais M1–M11 na ordem correta, e executa o bootstrap provisório do M15:
+  módulos reais M1–M12 na ordem correta, e executa o bootstrap provisório do M15:
     tela boot -> carga do banco real (data/questions.json via BQ5.bank.load)
     -> menu principal automaticamente.
 
@@ -20,10 +20,9 @@
 
   Por que servidor HTTP? O banco oficial e a interface real são carregados via
   fetch(); o Chrome bloqueia fetch em file://.
-
   ISOLAMENTO: não altera módulos originais; não contém perguntas, regras,
   pontuação nem cronômetro próprios (motor/relógio/persistência = M5/M6 reais).
-  Sem pausa (não existe no projeto) e sem M12–M14.
+  Sem pausa (não existe no projeto) e sem M13–M14.
 -->
 <link rel="stylesheet" href="../brasil-quiz/css/style.css">
 <style>
@@ -40,8 +39,9 @@
 <body>
 <div id="dev-loader" class="bq5ip-loader" role="status">
   <h1>Brasil em 5 Eixos — Preview Integrado (DEV)</h1>
-  <p>Carregando a interface real (<code>brasil-quiz/index.html</code>) e os módulos M1–M11…</p>
-</div>
+  <p>Carregando a interface real (<code>brasil-quiz/index.html</code>) e os módulos M1–M12…</p>
+</div>
+
 <noscript><p style="max-width:640px;margin:24px auto;font-family:system-ui,sans-serif;color:#7c2015;">Este preview requer JavaScript habilitado.</p></noscript>
 <script src="integrated-preview.js"></script>
 </body>

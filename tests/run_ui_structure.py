@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Teste estrutural da interface dos Módulos 6–11 — Brasil em 5 Eixos.
+"""Teste estrutural da interface dos Módulos 6–12 — Brasil em 5 Eixos.
 
 Uso:
     python tests/run_ui_structure.py [raiz_do_projeto]
@@ -22,10 +22,12 @@ SCREENS = (
 BASE_SCRIPTS = (
     'js/config.js', 'js/util.js', 'js/storage.js', 'js/bank.js', 'js/engine.js'
 )
-ACTIVE_UI_SCRIPTS = ('js/ui.js', 'js/screens/menu.js', 'js/screens/setup.js', 'js/screens/play.js', 'js/screens/results.js')
+ACTIVE_UI_SCRIPTS = (
+    'js/ui.js', 'js/screens/menu.js', 'js/screens/setup.js',
+    'js/screens/play.js', 'js/screens/results.js', 'js/screens/campaign.js'
+)
 PENDING_UI_SCRIPTS = (
-    'js/screens/campaign.js', 'js/multiplayer/local.js', 'js/multiplayer/lan.js',
-    'js/main.js'
+    'js/multiplayer/local.js', 'js/multiplayer/lan.js', 'js/main.js'
 )
 TEMPLATES = (
     'tpl-choice', 'tpl-player-field', 'tpl-roster-item', 'tpl-ranking-item',
@@ -34,7 +36,10 @@ TEMPLATES = (
 )
 DYNAMIC_CLASSES = (
     'bq5-is-entering', 'bq5-anim-pop', 'bq5-anim-shake', 'bq5-anim-pulse',
-    'bq5-progress-pip'
+    'bq5-progress-pip', 'bq5-campaign-difficulty', 'bq5-campaign-detail',
+    'bq5-campaign-summary', 'bq5-campaign-stops', 'bq5-campaign-stop',
+    'bq5-campaign-stop__title', 'bq5-campaign-stop__hint',
+    'bq5-campaign-stop__status', 'bq5-campaign-unlocked', 'bq5-campaign-warning'
 )
 ASSET_EXTENSIONS = {
     '.svg', '.png', '.webp', '.avif', '.jpg', '.jpeg', '.gif',
@@ -361,7 +366,8 @@ def main():
     check('IDs internos de template limitados a modal-title', template_ids <= {'modal-title'}, sorted(template_ids - {'modal-title'}))
     check('modal-title existe uma vez dentro do tpl-modal', sum(1 for item in all_id_items if item.attrs['id'] == 'modal-title' and item.in_template and item.template_id == 'tpl-modal') == 1)
     documented_ids = contract_id_set(contract)
-    check('IDs documentados presentes no HTML', documented_ids <= (static_ids | template_ids), sorted(documented_ids - (static_ids | template_ids)))
+    dynamic_campaign_ids = {'campaign-difficulty-wrap', 'campaign-difficulty', 'campaign-difficulty-status', 'campaign-detail'}
+    check('IDs documentados presentes no HTML ou criados pelo M12', documented_ids <= (static_ids | template_ids | dynamic_campaign_ids), sorted(documented_ids - (static_ids | template_ids | dynamic_campaign_ids)))
     check('todos os IDs estáticos do HTML constam no contrato', static_ids <= documented_ids, sorted(static_ids - documented_ids))
 
     # ---- screens ----
@@ -588,6 +594,16 @@ def main():
     # ---- scripts ----
     scripts = [item for item in parser.tags if item.tag == 'script' and item.attrs.get('src')]
     active_sources = [item.attrs['src'] for item in scripts]
+    # ---- campaign M12 ----
+    check('M12 ativa no HTML após resultados', 'js/screens/campaign.js' in active_sources and active_sources.index('js/screens/campaign.js') > active_sources.index('js/screens/results.js'))
+    check('template de região usa campaign-open-region', 'campaign-open-region' in html and 'campaign-stage' not in html)
+    check('botão de reset da campanha está presente', any(item.attrs.get('id') == 'campaign-reset' and item.attrs.get('data-action') == 'campaign-reset' for item in parser.tags))
+    campaign_js = paths['js'] / 'screens' / 'campaign.js'
+    campaign_source = campaign_js.read_text(encoding='utf-8') if campaign_js.is_file() else ''
+    check('M12 assina intent:campaign e eventos de resultados', all(token in campaign_source for token in ("on('intent:campaign'", "on('game:finished'", "on('results:campaign'", "on('results:replay'")))
+    check('M12 define 10 perguntas e cortes dos cinco níveis', 'QUESTIONS_PER_STOP = 10' in campaign_source and all(token in campaign_source for token in ('edu: 50', 'normal: 60', 'medio: 60', 'dificil: 70', 'geografo: 70')))
+    campaign_executable = re.sub(r'/\*.*?\*/|//[^\n]*', '', campaign_source, flags=re.S)
+    check('M12 não implementa variáveis/regras de chefe ou HP', not re.search(r'\b(?:boss|bossHp|hp|health|challengePoint)\b', campaign_executable, re.I))
     active_base = [src for src in active_sources if not src.startswith('../dev/')]
     check('ordem dos cinco scripts-base preservada', tuple(active_base[:5]) == BASE_SCRIPTS, active_base)
     check('nenhum script-base usa async/defer', all(not any(flag in item.attrs for flag in ('async', 'defer')) for item in scripts if item.attrs.get('src') in BASE_SCRIPTS))
@@ -596,11 +612,11 @@ def main():
         check('script-base existe: ' + src, (paths['game'] / src).is_file())
     joined_comments = '\n'.join(parser.comments)
     active_ui = [src for src in active_sources if src in ACTIVE_UI_SCRIPTS]
-    check('Módulos 7 a 11 ativos na ordem correta', tuple(active_ui) == ACTIVE_UI_SCRIPTS, active_ui)
+    check('Módulos 7 a 12 ativos na ordem correta', tuple(active_ui) == ACTIVE_UI_SCRIPTS, active_ui)
     for src in ACTIVE_UI_SCRIPTS:
         check('script de interface ativo existe: ' + src, (paths['game'] / src).is_file())
     pending_missing = [src for src in PENDING_UI_SCRIPTS if src not in joined_comments]
-    check('scripts pendentes dos módulos 12–15 listados em comentário', not pending_missing, pending_missing)
+    check('scripts pendentes dos módulos 13–15 listados em comentário', not pending_missing, pending_missing)
     for item in scripts:
         src = item.attrs['src']
         if src.startswith('../dev/'):

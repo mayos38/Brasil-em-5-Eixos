@@ -1,6 +1,6 @@
 # UI_CONTRACT — Brasil em 5 Eixos
 
-**Contrato atualizado até o Módulo 11, sobre a estrutura visual consolidada no Módulo 6 e o planejamento do Módulo 5.5.**
+**Contrato atualizado até o Módulo 12, sobre a estrutura visual consolidada no Módulo 6 e o planejamento do Módulo 5.5.**
 
 Contrato entre `brasil-quiz/index.html`, `brasil-quiz/css/style.css`, `docs/IDENTIDADE_VISUAL.md`, `docs/ASSET_CATALOG.md` e os módulos de interface 7–15.
 
@@ -80,8 +80,10 @@ Os eventos são delegados por `ui.js` a partir de um ancestral estável. Não cr
 | `to-menu` | Retornar ao menu. |
 | `to-campaign` | Abrir mapa/progresso da campanha. |
 | `replay` | Repetir o modo/etapa compatível com o resultado atual. |
-| `campaign-stage` | Solicitar a etapa indicada em `data-value` (chave da região). |
-| `campaign-reset` | Solicitar confirmação e reiniciar o progresso da campanha. |
+| `campaign-open-region` | Abrir os pontos de uma região liberada (`data-value` = chave da região). |
+| `campaign-start-stop` | Iniciar um ponto temático da região selecionada (`data-value` = ID do ponto). |
+| `campaign-back-regions` | Fechar o detalhe da região e voltar ao mapa de regiões. |
+| `campaign-reset` | Solicitar confirmação e reiniciar o progresso regional em todas as dificuldades. |
 | `lan-copy` | Copiar o código do campo/contexto correspondente ao botão acionado. |
 | `lan-accept` | Processar o código de resposta recebido pelo anfitrião. |
 | `lan-join` | Tentar entrar na sala com o código informado. |
@@ -95,7 +97,7 @@ Os eventos são delegados por `ui.js` a partir de um ancestral estável. Não cr
 
 As alternativas **não** usam `data-action`. São os quatro botões `.bq5-option[data-index="0".."3"]` dentro de `#play-options`; delegar o clique nesse contêiner ou em ancestral estável e validar o índice.
 
-`campaign-stage`, `modal-cancel` e `modal-confirm` começam nos templates. A ausência dessas ações fora de templates não é falha.
+`campaign-open-region` começa no template de rota; `campaign-start-stop` e `campaign-back-regions` são geradas pelo M12; `modal-cancel` e `modal-confirm` começam no template modal. A ausência das ações dinâmicas fora dos respectivos estados não é falha.
 
 ### Fluxo de confirmar e avançar
 
@@ -154,13 +156,28 @@ O Módulo 9 gera as opções a partir de `config.themes`, `config.themeLabels`, 
 
 O Módulo 11 lê primeiro o resultado final de `engine.result()` e usa `result.review`/`engine.review()` para montar a revisão. Pontuação, acertos e erros não são recalculados quando o motor já os informa; a UI só deriva valores ausentes para compatibilidade. Cada cartão da revisão informa enunciado, resposta marcada, resposta correta e explicação (`q.e`/`q.explanation`). O desempenho por eixo é agregado a partir das questões efetivamente respondidas.
 
-O histórico usa `storage.getJSON()`/`storage.setJSON()` com a chave `config.storageKeys.matchHistory` ou `config.storageKeys.history`, quando disponível; caso contrário, usa `bq5_match_history_v1`. São guardados até 60 resumos de partida (data, modo, pontuação, acertos/erros, aproveitamento, parâmetros e desempenho por eixo), sem duplicar o banco nem persistir o texto integral das questões. Recorde solo e progresso de campanha continuam responsabilidade do `engine`/`storage`.
+O histórico usa `storage.getJSON()`/`storage.setJSON()` com a chave `config.storageKeys.matchHistory` ou `config.storageKeys.history`, quando disponível; caso contrário, usa `bq5_match_history_v1`. São guardados até 60 resumos de partida (data, modo, pontuação, acertos/erros, aproveitamento, parâmetros e desempenho por eixo), sem duplicar o banco nem persistir o texto integral das questões. Recorde solo continua responsabilidade do `engine`/`storage`. A progressão detalhada por ponto/dificuldade é responsabilidade do M12 e usa a chave independente `bq5_campaign_v2`; o M12 sincroniza `storage.completeStage()` somente quando a meta regional agregada é alcançada, para manter compatibilidade com o indicador geral do M8.
 
-**Contrato futuro 1x1/multiplayer (módulos 13/14):** `mode` deve ser `1v1`, `1x1`, `duel`, `multiplayer`, `local` ou `lan`; `outcome` deve indicar explicitamente `win`, `loss` ou `draw` (alternativamente, `won`/`isWinner` booleanos ou o par `playerId` + `winnerId`). `players` ou `ranking` pode ser uma lista de `{id,name,score,rank}` para a classificação. A tela só escreve **“Vitória”**, **“Você perdeu”** ou **“Empate”** para esses modos e quando houver desfecho explícito; não deduz vencedor pela pontuação de um jogador isolada. `results:replay` e `results:campaign` são eventos de integração para os módulos de modo/campanha que virão. Solo usa `setup.start()` para repetir a mesma configuração; menu retorna ao `screen-menu`.
+**Contrato futuro 1x1/multiplayer (módulos 13/14):** `mode` deve ser `1v1`, `1x1`, `duel`, `multiplayer`, `local` ou `lan`; `outcome` deve indicar explicitamente `win`, `loss` ou `draw` (alternativamente, `won`/`isWinner` booleanos ou o par `playerId` + `winnerId`). `players` ou `ranking` pode ser uma lista de `{id,name,score,rank}` para a classificação. A tela só escreve **“Vitória”**, **“Você perdeu”** ou **“Empate”** para esses modos e quando houver desfecho explícito; não deduz vencedor pela pontuação de um jogador isolada. `results:replay` e `results:campaign` são eventos de integração para os módulos de modo/campanha; a campanha é conectada pelo M12. Solo usa `setup.start()` para repetir a mesma configuração; menu retorna ao `screen-menu`.
 
-### Campanha
+### Campanha — Módulo 12
 
-`screen-campaign`, `campaign-title`, `campaign-progress-text`, `campaign-done`, `campaign-total`, `campaign-progress`, `campaign-route`, `campaign-reset`.
+IDs estáticos: `screen-campaign`, `campaign-title`, `campaign-progress-text`, `campaign-done`, `campaign-total`, `campaign-progress`, `campaign-route`, `campaign-reset`.
+
+IDs dinâmicos criados pelo M12: `campaign-difficulty-wrap`, `campaign-difficulty`, `campaign-difficulty-status`, `campaign-detail`.
+
+- O M12 assina `intent:campaign` publicado pelo M8. O mapa mostra as cinco regiões na ordem de `config.campaignStages` (fallback: `config.regions`); Norte começa disponível e cada região seguinte depende da conclusão da anterior na mesma dificuldade.
+- Em Educativo/Fácil (`edu`), Normal (`normal`), Médio (`medio`) e Difícil (`dificil`), cada região tem cinco pontos — Cultura, Economia, Animais, Vegetação e Cidades — com 10 perguntas por ponto.
+- Em Geógrafo (`geografo`), cada região tem três pontos mistos de 10 perguntas, cada um sorteado do conjunto regional dos cinco temas.
+- Metas regionais agregadas: `edu` 50%, `normal` 60%, `medio` 60% (o esboço não definiu Médio; nesta versão usa-se o mesmo corte do Normal), `dificil` 70% e `geografo` 70%. O cálculo soma os melhores acertos de cada ponto dividido pelo total da região (50 perguntas nos quatro primeiros níveis; 30 em Geógrafo).
+- Todos os níveis de dificuldade ficam selecionáveis desde o início para teste; não há bloqueio de dificuldade por conclusão de outra dificuldade. A progressão das regiões, entretanto, continua sequencial dentro de cada dificuldade.
+- Repetir um ponto incrementa `attempts`; `bestScore`, `bestRight` e `bestPct` formam um único registro coerente: uma pontuação maior substitui o placar e os acertos da tentativa correspondente. Em empate de pontuação, vence a tentativa com mais acertos. Um resultado inferior não substitui o melhor registro.
+- O estado detalhado é persistido via `storage.getJSON()`/`storage.setJSON()` na chave própria `bq5_campaign_v2`; o M12 não acessa `localStorage` diretamente. Ao concluir uma região, chama a API legada `storage.completeStage()` uma única vez para sincronizar a barra geral do menu. Durante uma partida, intercepta somente essa chamada para impedir que o engine legado conclua a região após um único ponto temático.
+- O motor M5 permanece autoridade para seleção efetiva dentro do pool recebido, embaralhamento, gabarito, respostas, pontuação, relógio e resultado. Para compatibilidade com a API legada de campanha (que fixa `normal` e lê `campaignQuestionsPerStage`), o M12 restringe temporariamente `bank.list()` à região/tema/tier selecionados, ajusta a quantidade para 10 e injeta o tempo selecionado na entrada `normal` durante a chamada síncrona a `engine.start()`. Em seguida restaura imediatamente o banco/configuração. A implementação pressupõe M5.6: `engine.start()` precisa capturar `timeLimitMs` no estado.
+- Se o tier estrito tiver menos de 10 perguntas para a região/tema, o M12 usa outras faixas de dificuldade apenas dentro da mesma região/tema e informa o jogador; nunca completa o ponto com outra região. Se o conjunto regional/temático inteiro tiver menos de 10, bloqueia o início e informa a disponibilidade.
+- `results:campaign` retorna ao mapa com o detalhe da região; `results:replay` repete o ponto recém-concluído. Nenhum HP, chefe, ponto de desafio ou pausa faz parte deste M12.
+
+O M12 não altera `config.js`, `bank.js`, `engine.js` nem `storage.js`; sua ponte de compatibilidade está isolada em `screens/campaign.js`. A interface de pergunta continua sendo a tela M10, e os resultados/revisão continuam sendo M11.
 
 ### Sala com amigos (LAN)
 
@@ -284,6 +301,16 @@ As classes abaixo podem ser adicionadas pelo JavaScript mesmo quando não aparec
 - `bq5-anim-shake`
 - `bq5-anim-pulse`
 - `bq5-progress-pip`
+- `bq5-campaign-difficulty`
+- `bq5-campaign-detail`
+- `bq5-campaign-summary`
+- `bq5-campaign-stops`
+- `bq5-campaign-stop`
+- `bq5-campaign-stop__title`
+- `bq5-campaign-stop__hint`
+- `bq5-campaign-stop__status`
+- `bq5-campaign-unlocked`
+- `bq5-campaign-warning`
 
 Outras classes dinâmicas só podem ser introduzidas depois de documentadas aqui e declaradas no CSS. Nomes de classe devem manter o prefixo `bq5-`.
 
@@ -366,14 +393,14 @@ Módulos de interface ativos:
 3. `js/screens/setup.js` (módulo 9) — configuração solo por tema/eixo, dificuldade, modalidade e quantidade disponível; regras apresentadas antes de iniciar.
 4. `js/screens/play.js` (módulo 10) — fluxo de pergunta, seleção + confirmação, timer, progresso, pontos, revelação, timeout e abandono.
 5. `js/screens/results.js` (módulo 11) — resultado, revisão educativa, desempenho por eixo e histórico resumido.
+6. `js/screens/campaign.js` (módulo 12) — mapa regional, pontos temáticos/mistos, dificuldade, metas agregadas e progresso persistido.
 
 Ainda pendentes, e mantidos sem `<script src>` ativo até existirem:
-6. `js/screens/campaign.js` (módulo 12)
 7. `js/multiplayer/local.js` (módulo 13)
 8. `js/multiplayer/lan.js` (módulo 14)
-9. `js/main.js` (módulo 15)
+9. `js/main.js` (módulo 15 final)
 
-O Módulo 8 registra intenções (`intent:solo`, `intent:campaign`, `intent:local`, `intent:lan`) no barramento da UI. O Módulo 9 assina `intent:solo` e abre a configuração; as outras modalidades permanecem futuras/desabilitadas. `BQ5.screens.menu.show()` continua sendo chamado pelo bootstrap do Módulo 15 após o carregamento válido do banco; M7–M11 não contornam a tela de boot nem iniciam o menu automaticamente.
+O Módulo 8 registra intenções (`intent:solo`, `intent:campaign`, `intent:local`, `intent:lan`) no barramento da UI. M9 assina `intent:solo`; M12 assina `intent:campaign`; os modos local e LAN permanecem futuros/desabilitados. O preview integrado intermediário carrega os scripts ativos de `index.html` em sequência, carrega o banco oficial e chama `BQ5.screens.menu.show()` após o boot bem-sucedido. Isso não substitui o M15 final.
 
 Não usar `async` nos scripts dependentes. Se `defer` for introduzido, validar novamente a ordem e o momento de inicialização. `../dev/ui-preview.js` é provisório de desenvolvimento e deve ser removido no Módulo 15 antes da distribuição. O carregamento de `data/questions.json` depende de HTTP local; não assumir que `fetch()` funcionará via `file://`.
 
@@ -393,11 +420,11 @@ O módulo coordena DOM e eventos, mas não consulta ou altera diretamente `engin
 
 ## 12. Pendências que precisam ser confirmadas nos módulos-base
 
-1. **Cronômetro:** confirmar como `engine.js` e `config.js` expõem a duração efetiva da questão. A UI não pode presumir `engine.state().timeLimitMs` sem encontrar essa propriedade na API real.
-2. **Configuração:** conferir os nomes reais de temas, rótulos, tiers, quantidade e tempo em `config.js` antes de gerar opções.
-3. **Banco:** confirmar a assinatura real de `BQ5.bank` para obter lista e contagem. O menu usa o valor retornado, não 508 fixo.
-4. **Modos:** confirmar quais modos `engine.js` efetivamente aceita. A existência de telas solo/campanha/grupo/LAN não significa que todos já estejam funcionais.
-5. **Persistência:** usar somente operações existentes de `storage.js` para recordes e campanha; não duplicar persistência diretamente na UI.
+1. **Cronômetro (confirmado no M5.6):** `engine.remainingMs()` fornece o tempo restante e `engine.state().timeLimitMs` fornece a duração capturada ao iniciar a partida. Campanha M12 depende dessa captura síncrona para injetar o tempo por dificuldade sem modificar o motor.
+2. **Configuração (confirmada no M5.6):** cinco temas selecionáveis e tiers `edu`, `normal`, `medio`, `dificil` e `geografo`; a campanha lê `config.tiers`, `tierLabels`, `campaignStages`, `regions`, `themes`, `themeLabels` e `questionTimeMs`.
+3. **Banco (confirmado):** `BQ5.bank.loaded()`, `list()`, `count()` e `load()` são as APIs usadas pelo menu, campanha e preview. A contagem deve continuar dinâmica; nunca fixar 508 em regra de jogo.
+4. **Modos:** M5 aceita solo e campanha; multiplayer local/LAN depende dos Módulos 13/14.
+5. **Persistência:** usar somente APIs públicas `storage.getJSON()`/`setJSON()` e `completeStage()`; não duplicar persistência diretamente em `localStorage`.
 6. **Assets:** B1–B3 e F6–F9 continuam pendentes no catálogo; não referenciar arquivos que ainda não existem. B4–B6 estão provisoriamente resolvidos em CSS.
 7. **Game feel:** feedback de acerto/erro usa estados CSS existentes, animações curtas respeitam movimento reduzido, personagem usa apenas `data-mood` no placeholder, e o evento de som é no-op até integrar assets licenciados.
 8. **Sem pausa:** requisito imutável. Nenhum LLM deve adicionar pausa, retomada, estado `paused`, timer congelado, ação/evento de pausa ou suspensão por visibilidade/foco. Modal de saída não pausa o relógio; abandonar chama `engine.abort()`.
