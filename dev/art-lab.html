@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Brasil em 5 Eixos — Laboratório de Arte (M16)</title>
+  <link rel="stylesheet" href="../brasil-quiz/css/style.css">
+  <link rel="stylesheet" href="../brasil-quiz/css/art.css">
+  <link rel="stylesheet" href="art-lab.css">
+</head>
+<body>
+  <main class="art-lab">
+    <header class="art-lab__header">
+      <div>
+        <p class="art-lab__eyebrow">BRASIL EM 5 EIXOS · MÓDULO 16</p>
+        <h1>Laboratório de Arte</h1>
+        <p class="art-lab__intro">Troque imagens, experimente temas e confira o resultado sem abrir ou alterar o motor do jogo.</p>
+      </div>
+      <span class="art-lab__status" id="lab-status" role="status">Iniciando catálogo…</span>
+    </header>
+
+    <section class="art-lab__toolbar" aria-label="Configuração do laboratório">
+      <label class="art-lab__field">
+        <span>Categoria</span>
+        <select id="asset-category">
+          <option value="characters">Personagens</option>
+          <option value="mascots">Mascotes</option>
+          <option value="backgrounds">Fundos</option>
+          <option value="logos">Logotipos</option>
+          <option value="icons">Ícones</option>
+          <option value="illustrations">Ilustrações</option>
+        </select>
+      </label>
+      <label class="art-lab__field" id="mood-field">
+        <span>Expressão / estado</span>
+        <select id="asset-mood">
+          <option value="idle">Neutro (idle)</option>
+          <option value="happy">Feliz (happy)</option>
+          <option value="sad">Triste (sad)</option>
+        </select>
+      </label>
+      <label class="art-lab__field">
+        <span>Tema de cores</span>
+        <select id="theme-select"></select>
+      </label>
+    </section>
+
+    <div class="art-lab__layout">
+      <section class="art-lab__library" aria-labelledby="library-title">
+        <div class="art-lab__section-head">
+          <div>
+            <h2 id="library-title">Biblioteca de artes</h2>
+            <p>Selecione um item para visualizar. A escolha não é salva até clicar em “Salvar seleção”.</p>
+          </div>
+          <span id="asset-count" class="art-lab__count">0 itens</span>
+        </div>
+        <div id="asset-list" class="art-lab__asset-list" aria-live="polite"></div>
+      </section>
+
+      <aside class="art-lab__preview-column" aria-label="Pré-visualização">
+        <section class="art-lab__preview-card">
+          <div class="art-lab__section-head">
+            <div><h2>Composição de teste</h2><p>Prévia aproximada de personagem, mascote, marca e fundo.</p></div>
+          </div>
+          <div class="art-lab__canvas" id="preview-canvas">
+            <div class="art-lab__canvas-bg" id="preview-background"></div>
+            <div class="art-lab__canvas-brand" id="preview-logo"></div>
+            <div class="art-lab__actors">
+              <div class="art-lab__actor">
+                <div class="art-lab__character" id="preview-character"></div>
+                <span>Personagem</span>
+              </div>
+              <div class="art-lab__actor">
+                <div class="art-lab__mascot" id="preview-mascot"></div>
+                <span>Mascote</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="art-lab__preview-card art-lab__single-preview">
+          <div class="art-lab__section-head">
+            <div><h2>Item selecionado</h2><p id="selected-name">Nenhum item selecionado.</p></div>
+          </div>
+          <div class="art-lab__single-frame" id="preview-current-art"></div>
+          <p class="art-lab__description" id="selected-description"></p>
+          <code class="art-lab__path" id="selected-path">—</code>
+        </section>
+
+        <section class="art-lab__preview-card">
+          <h2>Testar uma imagem do aparelho</h2>
+          <p class="art-lab__helper">Escolha um arquivo para testar localmente na categoria selecionada. Ele não é enviado nem salvo no projeto. Para mantê-lo, copie-o para <code>brasil-quiz/assets/art/</code> e cadastre o caminho no catálogo.</p>
+          <label class="art-lab__upload">
+            <span>Selecionar imagem temporária</span>
+            <input id="local-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml">
+          </label>
+          <p id="upload-status" class="art-lab__helper" aria-live="polite">Nenhum arquivo temporário carregado.</p>
+          <button class="art-lab__button art-lab__button--quiet" id="clear-local-image" type="button" disabled>Voltar à arte do catálogo</button>
+        </section>
+
+        <section class="art-lab__actions">
+          <button class="art-lab__button art-lab__button--primary" id="save-selection" type="button">Salvar seleção local</button>
+          <button class="art-lab__button art-lab__button--quiet" id="reset-selection" type="button">Restaurar padrões</button>
+          <p id="save-status" class="art-lab__helper" aria-live="polite">As alterações de teste ainda não foram salvas.</p>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="art-lab__footer">
+      <strong>Como editar:</strong> adicione ou substitua os arquivos em <code>brasil-quiz/assets/art/</code>, edite <code>brasil-quiz/js/art-catalog.js</code> e atualize <code>revision</code> quando reaproveitar o mesmo nome de arquivo. Depois, atualize esta página.
+    </footer>
+  </main>
+  <script src="../brasil-quiz/js/config.js"></script>
+  <script src="../brasil-quiz/js/util.js"></script>
+  <script src="../brasil-quiz/js/storage.js"></script>
+  <script src="../brasil-quiz/js/art-catalog.js"></script>
+  <script src="../brasil-quiz/js/art.js"></script>
+  <script src="art-lab.js"></script>
+</body>
+</html>
