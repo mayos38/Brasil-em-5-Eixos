@@ -23,7 +23,8 @@
     diff: 'normal',
     count: null,
     maxCount: 0
-
+  };
+  
   function ui() { return BQ5.ui || null; }
   function config() { return BQ5.config || {}; }
   function bank() { return BQ5.bank || null; }
@@ -175,7 +176,6 @@
     var bonus = isInt(cfg.timeBonusMax) ? cfg.timeBonusMax : 7;
     var timeText = seconds ? (seconds / 1000) + ' segundos por questão' : 'tempo definido pelo motor conforme a dificuldade';
     var levels = Array.isArray((cfg.tiers || {})[state.diff]) ? cfg.tiers[state.diff].join(', ') : 'configurado no motor';
-    api.text('#setup-mode-hint', 'Solo individual é a única modalidade habilitada nesta versão. Campanha, grupo local e LAN permanecem visíveis como opções futuras, mas não podem ser selecionados.');
     api.text('#setup-tier-hint', 'A dificuldade ' + label(cfg.tierLabels, state.diff, state.diff) + ' usa as faixas ' + levels + '. A disponibilidade é calculada pelo banco carregado e segue a regra de seleção do motor.');
     api.text('#setup-rules',
       'Modalidade: solo individual. Cada questão apresenta quatro alternativas e exige selecionar uma resposta antes de confirmar. ' +
