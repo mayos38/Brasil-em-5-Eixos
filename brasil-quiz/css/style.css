@@ -18,16 +18,16 @@
   color-scheme: dark;
 
   /* superfícies, texto e bordas — paleta do planejamento 5.5 */
-  --bq5-bg: #0A1220;
-  --bq5-surface-1: #182440;
-  --bq5-surface-2: #233252;
-  --bq5-border: #2C3D66;             /* divisórias decorativas */
+  --bq5-bg: #171B12;
+  --bq5-surface-1: #252C1C;
+  --bq5-surface-2: #343D27;
+  --bq5-border: #536044;             /* divisórias decorativas */
   --bq5-border-strong: #7183A6;      /* contorno de controles, contraste >= 3:1 */
-  --bq5-text-primary: #EEF2FB;
-  --bq5-text-secondary: #93A1BD;
+  --bq5-text-primary: #F2F0E5;
+  --bq5-text-secondary: #E3B65C;
 
   /* marca, feedback e estados */
-  --bq5-primary: #FFD23F;
+  --bq5-primary: #E3B65C;
   --bq5-primary-ink: #0A1220;
   --bq5-success: #2FBF71;
   --bq5-success-bg: #143A2B;
@@ -38,7 +38,7 @@
   --bq5-info: #4E8FD1;
   --bq5-disabled-text: #5E6A85;
   --bq5-disabled-surface: #202B47;
-  --bq5-focus: #FFD23F;
+  --bq5-focus: #E3B65C;
   --bq5-overlay: rgb(4 8 16 / 0.70);
   --bq5-bg-gradient-end: #121C30;
   --bq5-topographic-line: rgb(147 161 189 / 0.055);
