@@ -23,13 +23,6 @@
     diff: 'normal',
     count: null,
     maxCount: 0
-  };
-  var MODE_OPTIONS = [
-    { value: 'solo', label: 'Solo individual', hint: 'Disponível agora', available: true },
-    { value: 'campaign', label: 'Campanha', hint: 'Disponível pelo menu próprio no Módulo 12', available: false },
-    { value: 'local', label: 'Grupo no mesmo aparelho', hint: 'Planejado para o Módulo 13', available: false },
-    { value: 'lan', label: 'Sala com amigos (LAN)', hint: 'Planejado para o Módulo 14', available: false }
-  ];
 
   function ui() { return BQ5.ui || null; }
   function config() { return BQ5.config || {}; }
@@ -174,30 +167,6 @@
     });
   }
 
-  function renderMode() {
-    renderChoiceGroup('#setup-modes', MODE_OPTIONS, state.mode, 'setup-select-mode');
-  }
-
-  function renderCount() {
-    var api = ui();
-    var available = availableQuestions(state.theme, state.diff);
-    state.maxCount = available;
-    var defaultCount = isInt(config().soloQuestionCount) && config().soloQuestionCount > 0 ? config().soloQuestionCount : 10;
-    if (available > 0) state.count = clamp(isInt(state.count) ? state.count : defaultCount, 1, available);
-    else state.count = 0;
-
-    api.text('#setup-count-value', state.count > 0 ? state.count : '—');
-    api.text('#setup-count-hint', available > 0
-      ? 'Até ' + available + ' questões disponíveis para esta combinação.'
-      : 'Não há questões disponíveis para esta combinação. Escolha outro eixo ou dificuldade.');
-    var dec = api.el('#setup-count-dec');
-    var inc = api.el('#setup-count-inc');
-    if (dec) dec.disabled = state.count <= 1;
-    if (inc) inc.disabled = state.count <= 0 || state.count >= available;
-    var start = api.el('#setup-start');
-    if (start) start.disabled = available <= 0 || !bank() || !bank().loaded();
-  }
-
   function renderRules() {
     var api = ui();
     var cfg = config();
@@ -225,7 +194,6 @@
     var loaded = !!(b && typeof b.loaded === 'function' && b.loaded());
     var count = loaded && typeof b.count === 'function' ? b.count() : 0;
 
-    renderMode();
     var diffs = difficultyOptions();
     if (!diffs.some(function (item) { return item.value === state.diff && item.available; })) {
       var first = diffs.filter(function (item) { return item.available; })[0];
@@ -249,10 +217,6 @@
     } else if (kind === 'diff') {
       if (!Object.prototype.hasOwnProperty.call(config().tiers || {}, value) || availableQuestions(state.theme, value) <= 0) return false;
       state.diff = value;
-    } else if (kind === 'mode') {
-      var available = MODE_OPTIONS.some(function (item) { return item.value === value && item.available; });
-      if (!available) return false;
-      state.mode = value;
     } else return false;
     render();
     return true;
@@ -318,7 +282,6 @@
   function bindActions() {
     var api = ui();
     unsubscribers.push(api.on('intent:solo', function () { show('solo'); }));
-    unsubscribers.push(api.onAction('setup-select-mode', function (detail) { select('mode', detail.value); }));
     unsubscribers.push(api.onAction('setup-select-theme', function (detail) { select('theme', detail.value); }));
     unsubscribers.push(api.onAction('setup-select-diff', function (detail) { select('diff', detail.value); }));
     unsubscribers.push(api.onAction('count-dec', function () { changeCount(-1); }));
