@@ -1270,3 +1270,22 @@ code {
   .bq5-player-card__progress-head { align-items: flex-start; }
 }
 .bq5-modal__extra { display: grid; gap: var(--bq5-sp-3); }
+
+/* M9: dificuldade em disposição horizontal */
+#setup-tiers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--bq5-sp-2);
+}
+
+#setup-tiers .bq5-choice {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Telas maiores: três colunas */
+@media (min-width: 40rem) {
+  #setup-tiers {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
