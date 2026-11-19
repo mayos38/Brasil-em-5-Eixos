@@ -880,32 +880,207 @@ code {
 }
 
 /* ---------- 12. RESPONSIVIDADE ---------- */
-@media (max-width: 22.5rem) { /* telas muito estreitas (<= 360px) */
-  :root { --bq5-fs-md: 1rem; --bq5-fs-lg: 1.125rem; --bq5-fs-xl: 1.4375rem; --bq5-fs-2xl: 1.875rem; }
+/* ---------- 12. RESPONSIVIDADE ---------- */
+
+/* TELAS MUITO ESTREITAS (<= 360px) */
+@media (max-width: 22.5rem) {
+  :root {
+    --bq5-fs-md: 1rem;
+    --bq5-fs-lg: 1.125rem;
+    --bq5-fs-xl: 1.4375rem;
+    --bq5-fs-2xl: 1.875rem;
+  }
+
   .bq5-screen { padding-inline: var(--bq5-sp-3); }
-  .bq5-actionbar { margin-inline: calc(var(--bq5-sp-3) * -1); padding-inline: var(--bq5-sp-3); }
-  .bq5-option { grid-template-columns: 1.75rem 1fr 1.25rem; gap: var(--bq5-sp-2); }
-  .bq5-option__key { width: 1.75rem; height: 1.75rem; }
+
+  .bq5-actionbar {
+    margin-inline: calc(var(--bq5-sp-3) * -1);
+    padding-inline: var(--bq5-sp-3);
+  }
+
+  .bq5-option {
+    grid-template-columns: 1.75rem 1fr 1.25rem;
+    gap: var(--bq5-sp-2);
+  }
+
+  .bq5-option__key {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
   .bq5-stats { gap: var(--bq5-sp-1); }
 }
-@media (orientation: landscape) and (max-height: 30rem) { /* celular deitado */
-  :root { --bq5-avatar: 3rem; --bq5-avatar-lg: 5rem; --bq5-fs-hero: 3rem; }
-  .bq5-screen { padding-block: var(--bq5-sp-3); gap: var(--bq5-sp-3); }
-  .bq5-brand { padding-top: 0; }
-  .bq5-cast { min-height: calc(var(--bq5-avatar) + 0.5rem); }
-}
+
+/* TABLETS E TELAS MAIS LARGAS */
 @media (min-width: 40rem) {
   .bq5-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .bq5-options { grid-template-columns: 1fr 1fr; }
   .bq5-menu { grid-template-columns: 1fr 1fr; }
 }
-@media (min-width: 48rem) { /* tablet / desktop */
-  :root { --bq5-w-app: 60rem; --bq5-fs-md: 1rem; --bq5-fs-xl: 1.75rem; --bq5-avatar: 6rem; }
-  .bq5-screen { padding: var(--bq5-sp-5) var(--bq5-sp-5) var(--bq5-sp-6); }
-  .bq5-actionbar { margin-inline: calc(var(--bq5-sp-5) * -1); padding-inline: var(--bq5-sp-5); }
+
+@media (min-width: 48rem) {
+  :root {
+    --bq5-w-app: 60rem;
+    --bq5-fs-md: 1rem;
+    --bq5-fs-xl: 1.75rem;
+    --bq5-avatar: 6rem;
+  }
+
+  .bq5-screen {
+    padding: var(--bq5-sp-5) var(--bq5-sp-5) var(--bq5-sp-6);
+  }
+
+  .bq5-actionbar {
+    margin-inline: calc(var(--bq5-sp-5) * -1);
+    padding-inline: var(--bq5-sp-5);
+  }
+
   .bq5-options { grid-template-columns: 1fr 1fr; }
   .bq5-menu { grid-template-columns: 1fr 1fr; }
   .bq5-menu__item:first-child { grid-column: 1 / -1; }
+}
+
+/* TELAS COM ALTURA ATÉ 760px */
+@media (max-height: 47.5rem) {
+
+  .bq5-screen[data-screen="play"] {
+    gap: var(--bq5-sp-3);
+    padding-block: var(--bq5-sp-3);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-cast {
+    --bq5-avatar: 3.5rem;
+    min-height: calc(var(--bq5-avatar) + 0.5rem);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-question {
+    gap: var(--bq5-sp-2);
+    padding: var(--bq5-sp-3);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-option {
+    min-height: var(--bq5-tap);
+    padding-block: var(--bq5-sp-2);
+  }
+}
+
+/* TELAS COM ALTURA ATÉ 640px */
+@media (max-height: 40rem) {
+
+  .bq5-screen[data-screen="play"] {
+    gap: var(--bq5-sp-2);
+    padding-block: var(--bq5-sp-2);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-cast {
+    --bq5-avatar: 3rem;
+    min-height: 3.5rem;
+    gap: var(--bq5-sp-2);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-question {
+    gap: var(--bq5-sp-2);
+    padding: var(--bq5-sp-2);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-question__timer {
+    padding-block: 0;
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-question__text {
+    line-height: 1.3;
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-options {
+    gap: var(--bq5-sp-1);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-option {
+    min-height: var(--bq5-tap);
+    padding-block: var(--bq5-sp-2);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-feedback {
+    gap: var(--bq5-sp-1);
+    padding-block: var(--bq5-sp-2);
+  }
+}
+
+/* CELULAR NA HORIZONTAL — ATÉ 480px DE ALTURA */
+@media (orientation: landscape) and (max-height: 30rem) {
+
+  :root {
+    --bq5-avatar: 3rem;
+    --bq5-avatar-lg: 5rem;
+    --bq5-fs-hero: 3rem;
+  }
+
+  .bq5-screen {
+    padding-block: var(--bq5-sp-3);
+    gap: var(--bq5-sp-3);
+  }
+
+  .bq5-brand { padding-top: 0; }
+
+  .bq5-cast {
+    min-height: calc(var(--bq5-avatar) + 0.5rem);
+  }
+
+  /* Ajustes exclusivos da partida */
+  .bq5-screen[data-screen="play"] {
+    --bq5-avatar: 2.5rem;
+    gap: var(--bq5-sp-2);
+    padding-block: var(--bq5-sp-2);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-cast {
+    min-height: 3rem;
+    gap: var(--bq5-sp-2);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-companion__name {
+    display: none;
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-cast__bubble {
+    padding: var(--bq5-sp-1) var(--bq5-sp-2);
+    font-size: var(--bq5-fs-xs);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-question {
+    gap: var(--bq5-sp-1);
+    padding: var(--bq5-sp-2);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-question__timer {
+    padding-block: 0;
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-question__tags {
+    gap: var(--bq5-sp-1);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-question__text {
+    line-height: 1.25;
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-options {
+    gap: var(--bq5-sp-1);
+  }
+
+  .bq5-screen[data-screen="play"] .bq5-option {
+    min-height: var(--bq5-tap);
+    padding-block: var(--bq5-sp-1);
+  }
+}
+
+/* MODAIS EM TELAS GRANDES */
+@media (min-width: 64rem) {
+  .bq5-modal__panel { width: min(100%, 32.5rem); }
+  .bq5-modal__actions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
 }
 
 /* O fluxo da questão permanece centralizado e limitado a 720px. */
@@ -913,19 +1088,14 @@ code {
   width: min(100%, var(--bq5-w-question));
   margin-inline: auto;
 }
+
 .bq5-screen[data-screen="play"] > .bq5-actionbar {
   width: min(100%, var(--bq5-w-question));
   margin-inline: auto;
 }
 
-@media (min-width: 64rem) {
-  .bq5-modal__panel { width: min(100%, 32.5rem); }
-  .bq5-modal__actions { flex-direction: row; justify-content: flex-end; }
-}
-
 /* Mensagem alternativa quando JavaScript estiver desativado. */
 .bq5-noscript { margin: var(--bq5-sp-4); }
-
 /* ---------- MÓDULO 8: identidade local, progresso e ferramentas do menu ---------- */
 .bq5-player-card {
   display: grid;
