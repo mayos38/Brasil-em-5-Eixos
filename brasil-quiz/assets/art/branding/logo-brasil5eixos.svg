@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 150" role="img" aria-label="Brasil em 5 Eixos">
+  <rect x="8" y="8" width="134" height="134" rx="30" fill="#182440" stroke="#FFD23F" stroke-width="5"/>
+  <path d="m78 28 38 17-7 47-31 30-28-31-4-42z" fill="#2FBF71" stroke="#EEF2FB" stroke-width="4"/>
+  <path d="m56 72 22 15 28-26" fill="none" stroke="#FFD23F" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="170" y="73" fill="#EEF2FB" font-family="Arial,sans-serif" font-size="43" font-weight="700">BRASIL</text>
+  <text x="172" y="116" fill="#FFD23F" font-family="Arial,sans-serif" font-size="31" font-weight="700">EM 5 EIXOS</text>
+</svg>

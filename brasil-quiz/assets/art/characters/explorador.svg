@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 360" role="img" aria-label="Personagem Explorador provisório">
+  <defs>
+    <linearGradient id="shirt" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#4E8FD1"/><stop offset="1" stop-color="#24527E"/></linearGradient>
+  </defs>
+  <ellipse cx="160" cy="333" rx="89" ry="16" fill="#07111f" opacity=".28"/>
+  <path d="M88 302q6-83 31-112h82q26 31 31 112l-36 21h-72z" fill="url(#shirt)" stroke="#173d62" stroke-width="7"/>
+  <path d="m130 206 30 45 30-45" fill="none" stroke="#FFD23F" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M143 250h34l11 70h-56z" fill="#D7A36B"/>
+  <path d="M105 92q5-61 55-61t55 61v76q-7 56-55 56t-55-56z" fill="#C98455" stroke="#75472f" stroke-width="7"/>
+  <path d="M91 103q-12-76 69-82 76 3 72 84-17-24-38-29-42-13-103 27z" fill="#28384A" stroke="#172330" stroke-width="8"/>
+  <path d="M123 137q10-8 21 0m32 0q10-8 21 0" stroke="#3a251d" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <path d="M142 174q18 17 37 0" stroke="#6C342B" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <path d="M111 88q47-23 98-5" stroke="#FFD23F" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <circle cx="213" cy="104" r="13" fill="#FFD23F" stroke="#9B7415" stroke-width="4"/>
+</svg>
