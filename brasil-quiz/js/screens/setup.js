@@ -137,6 +137,27 @@
       container.__bq5SetupKeys = true;
     }
   }
+  
+function renderCount() {
+var api = ui();
+var available = availableQuestions(state.theme, state.diff);
+state.maxCount = available;
+var defaultCount = isInt(config().soloQuestionCount) && config().soloQuestionCount > 0 ? config().soloQuestionCount : 10;
+if (available > 0) state.count = clamp(isInt(state.count) ? state.count : defaultCount, 1, available);
+else state.count = 0;
+
+
+api.text('#setup-count-value', state.count > 0 ? state.count : '—');
+api.text('#setup-count-hint', available > 0
+? 'Até ' + available + ' questões disponíveis para esta combinação.'
+: 'Não há questões disponíveis para esta combinação. Escolha outro eixo ou dificuldade.');
+var dec = api.el('#setup-count-dec');
+var inc = api.el('#setup-count-inc');
+if (dec) dec.disabled = state.count <= 1;
+if (inc) inc.disabled = state.count <= 0 || state.count >= available;
+var start = api.el('#setup-start');
+if (start) start.disabled = available <= 0 || !bank() || !bank().loaded();
+}
 
   function themeOptions() {
     var cfg = config();
