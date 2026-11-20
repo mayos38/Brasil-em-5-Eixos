@@ -118,7 +118,7 @@ Os resultados e as pendências de cada etapa são acompanhados separadamente na 
 **Em desenvolvimento / etapas futuras:**
 
 * **Campanha:** percurso pelas cinco regiões brasileiras, com progressão própria.
-* **Multiplayer local:** partidas entre jogadores, incluindo o modo 1×1; a expectativa atual é de que seja possível por meio da mesma rede de Wi-fi/Lan. Também terá jogabilidade diferente tanto do modo solo, quanto do modo campanha.
+* **Multiplayer local, via Wi-fi/LAN:** partidas entre jogadores, incluindo o modo 1×1; a expectativa atual é de que seja possível por meio da mesma rede de Wi-fi/Lan. Também terá jogabilidade diferente tanto do modo solo, quanto do modo campanha.
 * **Integração final:** inicialização e conexão definitiva de todos os módulos, substituindo as ferramentas intermediárias de prévia, que estão disponíveis para testes da fase atual.
 * **Personagens para personalização e individualização dos jogadores, com mascotes desbloqueáveis através de marcos (como conquistas da Campanha)
 A interface e a arquitetura seguem uma direção **mobile-first**: a experiência deve funcionar bem em telas pequenas e também se adaptar a telas maiores. 
