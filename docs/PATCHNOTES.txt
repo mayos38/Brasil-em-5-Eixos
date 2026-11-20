@@ -1,0 +1,36 @@
+================================================================
+BRASIL EM 5 EIXOS — PATCH NOTES
+Registro cronológico das atualizações relevantes, organizado por versões Alpha.
+Manutenção: o usuário edita este arquivo conforme recebe feedback real.
+LLMs podem ler; alterações somente mediante pedido explícito do usuário.
+================================================================
+
+Update alpha #1: Mudanças de jogabilidade.
+
+Através de coletas de feedback, notou-se a necessidade de alterar o tempo das perguntas, devido à dificuldade associada, bem como a nomenclatura mais adequada.
+
+Mudança de nome da dificuldade:
+- Modo fácil (ao invés de "fácil + dicas");
+- Modo padrão (ao invés de normal ou médio).
+
+Atualização de balanceamento de tempos no modo solo — os tempos serão ajustados nas dificuldades:
+- Fácil: 30 segundos;
+- Padrão: 30 segundos;
+- Difícil: 40 segundos;
+- Geógrafo: 50 segundos.
+
+É esperado que, com essas mudanças, as pessoas que testarem tenham um maior nível de diversão e um pouco mais de tempo para pensar em perguntas complexas.
+
+Status: Não implementado, pendente de atualização. Data: 19-11-2026.
+
+Update alpha #2: Atualização de UI/UX.
+
+- Diminuir dinamicamente o tamanho da fonte na tela do dispositivo/navegador, visando evitar que nos celulares seja necessário "descer" a imagem/página para ver todas as opções nas partidas.
+- Foram removidas do menu de opções do modo "solo" as seguintes opções:
+  - Campanha;
+  - Grupo no mesmo aparelho;
+  - Sala com os amigos (LAN).
+- Mudanças na paleta de cores voltadas a um tom verde e dourado.
+- O modo solo teve sua organização dos botões alterada para facilitar a jogabilidade.
+
+Status: Implementado com sucesso, dia 19-11-2026; antes da última entrada no Progress.md.
