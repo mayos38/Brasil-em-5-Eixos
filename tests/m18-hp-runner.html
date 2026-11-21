@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Testes locais — M18 Sistema de HP</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #171b12; color: #f0eee6; }
+    body { max-width: 900px; margin: 0 auto; padding: 24px; }
+    h1 { margin-bottom: .35rem; }
+    p { color: #c4c3b8; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 18px; border: 1px solid #555b47; border-radius: 12px; background: #20261a; line-height: 1.55; }
+    [data-status="pass"] { border-color: #6a9c6b; }
+    [data-status="fail"] { border-color: #c36b61; }
+    code { color: #f1ce76; }
+  </style>
+</head>
+<body>
+  <h1>M18 — Sistema de HP</h1>
+  <p>Runner local sem Node.js, bibliotecas ou servidores externos. Execute pelo servidor HTTP local do projeto.</p>
+  <pre id="test-output" role="status" aria-live="polite">Carregando módulos e executando testes…</pre>
+  <script src="../js/systems/hp.js"></script>
+  <script src="../js/multiplayer/duel-engine.js"></script>
+  <script src="m18-hp-browser-test.js"></script>
+</body>
+</html>
