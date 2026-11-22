@@ -36,7 +36,7 @@
     sessionId: null, localPlayerId: null, localName: 'Jogador',
     remoteName: 'Convidado', roomCode: '', answerCode: '', remoteJoined: false,
     outSeq: 0, inSeq: 0, fingerprint: '',
-    hostReady: false, guestReady: false, theme: 'all', themeOrder: [],
+    theme: 'all', themeOrder: [],
     game: null, gameStarted: false, timerInterval: null, transitionTimeout: null,
     timerDeadline: null, currentRemaining: 0, lastView: null,
     resultShown: false, disconnected: false
@@ -50,13 +50,28 @@
   function safeString(value, fallback) { return String(value == null || value === '' ? fallback : value).slice(0, 24); }
   function getName() { var n = el('#m13-player-name'); return safeString(n && n.value, 'Jogador'); }
   function toast(message, kind) { var api = ui(); if (api && typeof api.toast === 'function') api.toast(message, kind || 'info'); else text('#lan-status', message); }
-  function status(message) { text('#lan-status', message); }
-  function showLan() {
-    if (state.resultShown) cleanup(true);
+  function status(message) {
+    text('#lan-status', message);
+    text('#m13-lobby-status', message);
+  }
+  function navigateScreen(name) {
+    var app = el('#bq5-app');
+    if (app && app.getAttribute('data-screen') === name) return { ok: true, screen: name };
     var api = ui();
-    if (api && typeof api.showScreen === 'function') api.showScreen('lan', { history: false });
-    else show(el('#screen-lan'), true);
-    status('Conecte dois aparelhos na mesma rede Wi-Fi. O código de sala é trocado diretamente entre vocês.');
+    if (api && typeof api.showScreen === 'function') return api.showScreen(name, { history: false });
+    var next = el('#screen-' + name);
+    if (!next) return { ok: false, code: 'UNKNOWN_SCREEN' };
+    Array.prototype.forEach.call(global.document.querySelectorAll('.bq5-screen'), function (screen) {
+      screen.hidden = screen !== next;
+    });
+    if (app) app.setAttribute('data-screen', name);
+    return { ok: true, screen: name };
+  }
+  function showLan() {
+    if (state.resultShown || state.role || state.pc) cleanup(true);
+    navigateScreen('lan');
+    setConnectionUi(false, false);
+    status('Crie uma sala ou cole o código recebido. Os dois aparelhos precisam estar na mesma rede Wi-Fi.');
   }
   function bankQuestions() {
     return BQ5.bank && typeof BQ5.bank.list === 'function' ? BQ5.bank.list() : [];
@@ -199,8 +214,8 @@
       state.remoteJoined = true;
       state.remoteName = safeString(message.hostName, 'Anfitrião');
       state.themeOrder = Array.isArray(message.themeOrder) ? message.themeOrder.slice() : [];
-      renderPlayers();
-      status('Você entrou na sala de ' + state.remoteName + '. Aguarde a escolha do tema.');
+      renderLobby();
+      status('Conectado à sala de ' + state.remoteName + '. O anfitrião está preparando a partida.');
       return;
     }
     if (message.type === 'error') { status(message.message || 'A sala recusou a conexão.'); return; }
@@ -210,21 +225,13 @@
     else receiveGuest(message);
   }
   function receiveHost(message) {
-    if (!state.game) {
-      if (message.type === 'ready') {
-        state.guestReady = true;
-        publishLobby();
-      }
-      return;
-    }
+    if (!state.game) return;
     if (message.type === 'action') processAction('p2', message.action, message.payload || {});
   }
   function receiveGuest(message) {
     if (message.type === 'lobby') {
       state.theme = message.theme || 'all';
       state.themeOrder = Array.isArray(message.themeOrder) ? message.themeOrder.slice() : state.themeOrder;
-      state.hostReady = !!message.hostReady;
-      state.guestReady = !!message.guestReady;
       state.remoteName = safeString(message.hostName, 'Anfitrião');
       renderLobby();
       return;
@@ -236,6 +243,7 @@
       }
       state.lastView = message.view;
       state.currentRemaining = Number(message.remainingMs) || 0;
+      setConnectionUi(true, true);
       renderGame(message.view, message.question || null, state.currentRemaining);
       return;
     }
@@ -251,7 +259,7 @@
     }
     if (message.type === 'aborted') {
       toast('O anfitrião encerrou a partida.', 'info');
-      cleanup(false);
+      cleanup(true);
       showLan();
     }
   }
@@ -264,10 +272,9 @@
       status('Conexão perdida. A partida foi interrompida e não será registrada como vitória ou derrota.');
       toast('Conexão perdida. Esta partida não será registrada; saia do duelo para criar outra sala.', 'error');
     } else if (state.role) {
+      cleanup(true);
+      navigateScreen('lan');
       status('Conexão encerrada. Você pode criar ou entrar em outra sala.');
-      show(el('#m13-lobby'), false);
-      setConnectionUi(false, false);
-      renderPlayers();
     }
   }
   function stopTimers() {
@@ -285,57 +292,111 @@
     closePeer();
     state.role = null; state.sessionId = null; state.localPlayerId = null;
     state.roomCode = ''; state.answerCode = ''; state.outSeq = 0; state.inSeq = 0;
-    state.hostReady = false; state.guestReady = false; state.theme = 'all'; state.themeOrder = [];
+    state.theme = 'all'; state.themeOrder = [];
     state.remoteJoined = false; state.game = null; state.gameStarted = false; state.lastView = null; state.resultShown = false; state.disconnected = false;
     state.remoteName = 'Convidado';
     if (resetUi) {
       ['#lan-host-code', '#lan-host-answer', '#lan-join-offer', '#lan-join-code'].forEach(function (selector) { var n = el(selector); if (n) n.value = ''; });
       show(el('#lan-role'), true); show(el('#lan-panel-host'), true); show(el('#lan-panel-join'), false);
       var roleChoices = el('#lan-role'); if (roleChoices) Array.prototype.forEach.call(roleChoices.querySelectorAll('[role="radio"]'), function (node) { var selected = node.getAttribute('data-value') === 'host'; node.setAttribute('aria-checked', selected ? 'true' : 'false'); node.tabIndex = selected ? 0 : -1; });
+      var hostAnswer = el('#lan-host-answer'); if (hostAnswer) show(hostAnswer.closest('.bq5-field'), false);
+      var guestAnswer = el('#lan-join-code'); if (guestAnswer) show(guestAnswer.closest('.bq5-field'), false);
       show(el('#m13-name-wrap'), true);
-      var players = el('#lan-players'); var playersSection = players && players.closest('.bq5-section'); if (playersSection) show(playersSection, true);
-      var screen = el('#screen-lan'); var footer = screen && screen.querySelector('.bq5-actionbar'); if (footer) show(footer, true);
-      show(el('#m13-lobby'), false); show(el('#m13-game'), false);
+      var createButton = el('#m13-create-room');
+      if (createButton) { createButton.disabled = false; createButton.textContent = 'Criar sala e gerar convite'; show(createButton, true); }
+      var joinButton = el('#lan-join-connect'); if (joinButton) { joinButton.disabled = false; show(joinButton, true); }
+      var acceptButton = el('#lan-host-accept'); if (acceptButton) { acceptButton.disabled = false; acceptButton.textContent = 'Confirmar conexão'; }
+      show(el('#m13-connect-reset'), false);
+      var players = el('#lan-players'); var playersSection = players && players.closest('.bq5-section'); if (playersSection) show(playersSection, false);
+      var oldFooter = el('#screen-lan .bq5-actionbar'); if (oldFooter) show(oldFooter, false);
+      var lobby = el('#m13-lobby'); if (lobby) while (lobby.firstChild) lobby.removeChild(lobby.firstChild);
+      var game = el('#m13-game'); if (game) while (game.firstChild) game.removeChild(game.firstChild);
       var start = el('#lan-start'); if (start) start.disabled = true;
     }
   }
 
   function ensureUi() {
     var screen = el('#screen-lan');
-    if (!screen || !global.document) return false;
-    if (el('#m13-player-name')) return true;
-    var header = screen.querySelector('.bq5-screen__head');
-    var nameWrap = global.document.createElement('label');
-    nameWrap.id = 'm13-name-wrap';
-    nameWrap.className = 'bq5-field m13-name-field';
-    var nameLabel = global.document.createElement('span'); nameLabel.className = 'bq5-label'; nameLabel.textContent = 'Seu nome';
-    var nameInput = global.document.createElement('input'); nameInput.id = 'm13-player-name'; nameInput.className = 'bq5-input'; nameInput.type = 'text'; nameInput.maxLength = 24; nameInput.autocomplete = 'nickname'; nameInput.value = 'Jogador';
-    nameWrap.appendChild(nameLabel); nameWrap.appendChild(nameInput);
-    if (header && header.parentNode) header.parentNode.insertBefore(nameWrap, header.nextSibling); else screen.insertBefore(nameWrap, screen.firstChild);
+    var main = el('#bq5-main');
+    if (!screen || !main || !global.document) return false;
+
+    if (!el('#m13-player-name')) {
+      var header = screen.querySelector('.bq5-screen__head');
+      var nameWrap = global.document.createElement('label');
+      nameWrap.id = 'm13-name-wrap'; nameWrap.className = 'bq5-field m13-name-field';
+      var nameLabel = global.document.createElement('span'); nameLabel.className = 'bq5-label'; nameLabel.textContent = 'Seu nome';
+      var nameInput = global.document.createElement('input'); nameInput.id = 'm13-player-name'; nameInput.className = 'bq5-input'; nameInput.type = 'text'; nameInput.maxLength = 24; nameInput.autocomplete = 'nickname'; nameInput.value = 'Jogador';
+      nameWrap.appendChild(nameLabel); nameWrap.appendChild(nameInput);
+      if (header && header.parentNode) header.parentNode.insertBefore(nameWrap, header.nextSibling); else screen.insertBefore(nameWrap, screen.firstChild);
+    }
 
     var hostPanel = el('#lan-panel-host');
-    if (hostPanel) {
+    if (hostPanel && !el('#m13-create-room')) {
       var create = global.document.createElement('button');
-      create.type = 'button'; create.className = 'bq5-btn bq5-btn--primary bq5-btn--block';
-      create.id = 'm13-create-room'; create.setAttribute('data-m13-action', 'create-room'); create.textContent = 'Gerar código da sala';
+      create.type = 'button'; create.className = 'bq5-btn bq5-btn--primary bq5-btn--block m13-create-room';
+      create.id = 'm13-create-room'; create.setAttribute('data-m13-action', 'create-room'); create.textContent = 'Criar sala e gerar convite';
       hostPanel.insertBefore(create, hostPanel.firstChild);
     }
+
+    var hostCopy = el('#lan-host-copy'); if (hostCopy) hostCopy.textContent = 'Copiar convite';
+    var acceptButton = el('#lan-host-accept'); if (acceptButton) acceptButton.textContent = 'Confirmar conexão';
+    var guestCopy = el('#lan-join-copy'); if (guestCopy) guestCopy.textContent = 'Copiar resposta';
+    var guestAnswerLabel = el('#lan-join-code');
+    if (guestAnswerLabel) { var label = guestAnswerLabel.closest('.bq5-field'); var labelText = label && label.querySelector('.bq5-label'); if (labelText) labelText.textContent = 'Sua resposta — envie ao anfitrião'; }
+
+    var hostAnswer = el('#lan-host-answer');
+    if (hostAnswer) show(hostAnswer.closest('.bq5-field'), false);
+    var guestAnswer = el('#lan-join-code');
+    if (guestAnswer) show(guestAnswer.closest('.bq5-field'), false);
+
+    if (!el('#m13-connect-reset')) {
+      var resetWrap = global.document.createElement('div'); resetWrap.id = 'm13-connect-reset'; resetWrap.className = 'm13-connect-reset'; resetWrap.hidden = true;
+      var reset = global.document.createElement('button'); reset.type = 'button'; reset.className = 'bq5-btn bq5-btn--ghost'; reset.setAttribute('data-m13-action', 'reset'); reset.textContent = 'Trocar opção';
+      resetWrap.appendChild(reset); screen.appendChild(resetWrap);
+    }
+
+    var roleSection = el('#lan-role');
+    if (roleSection) roleSection.classList.add('m13-role-switch');
+    var hostPanelNode = el('#lan-panel-host'); if (hostPanelNode) hostPanelNode.classList.add('m13-connect-panel');
+    var joinPanelNode = el('#lan-panel-join'); if (joinPanelNode) joinPanelNode.classList.add('m13-connect-panel');
+    var statusNode = el('#lan-status'); if (statusNode) statusNode.classList.add('m13-connect-status');
     var players = el('#lan-players');
     var playersSection = players && players.closest('.bq5-section');
-    if (playersSection) {
-      var lobby = global.document.createElement('section'); lobby.id = 'm13-lobby'; lobby.className = 'bq5-section m13-panel'; lobby.hidden = true;
-      playersSection.parentNode.insertBefore(lobby, playersSection.nextSibling);
+    if (playersSection) playersSection.classList.add('m13-connect-players');
+    var oldStart = el('#lan-start'); if (oldStart) oldStart.hidden = true;
+    var oldFooter = el('#screen-lan .bq5-actionbar'); if (oldFooter) oldFooter.hidden = true;
+
+    if (!el('#screen-m13-lobby')) {
+      var lobbyScreen = global.document.createElement('section');
+      lobbyScreen.id = 'screen-m13-lobby'; lobbyScreen.className = 'bq5-screen m13-lobby-screen'; lobbyScreen.setAttribute('data-screen', 'm13-lobby'); lobbyScreen.setAttribute('aria-labelledby', 'm13-lobby-title'); lobbyScreen.hidden = true;
+      var lobbyHead = global.document.createElement('header'); lobbyHead.className = 'bq5-screen__head';
+      var lobbyTitle = global.document.createElement('h1'); lobbyTitle.id = 'm13-lobby-title'; lobbyTitle.className = 'bq5-screen__title'; lobbyTitle.textContent = 'Preparação do duelo';
+      var lobbyLead = global.document.createElement('p'); lobbyLead.className = 'bq5-screen__lead'; lobbyLead.textContent = 'O anfitrião define o tema. Os dois jogadores acompanham a preparação nesta tela.';
+      lobbyHead.appendChild(lobbyTitle); lobbyHead.appendChild(lobbyLead); lobbyScreen.appendChild(lobbyHead);
+      var lobbyBody = global.document.createElement('div'); lobbyBody.className = 'm13-lobby-body';
+      var lobbyContent = global.document.createElement('section'); lobbyContent.id = 'm13-lobby'; lobbyContent.className = 'm13-lobby-content';
+      lobbyBody.appendChild(lobbyContent); lobbyScreen.appendChild(lobbyBody);
+      main.appendChild(lobbyScreen);
     }
-    var game = global.document.createElement('section'); game.id = 'm13-game'; game.className = 'm13-game'; game.hidden = true;
-    screen.appendChild(game);
+
+    if (!el('#screen-m13-game')) {
+      var gameScreen = global.document.createElement('section');
+      gameScreen.id = 'screen-m13-game'; gameScreen.className = 'bq5-screen m13-game-screen'; gameScreen.setAttribute('data-screen', 'm13-game'); gameScreen.setAttribute('aria-labelledby', 'm13-game-title'); gameScreen.hidden = true;
+      var gameHead = global.document.createElement('header'); gameHead.className = 'bq5-screen__head m13-game-screen__head';
+      var gameTitle = global.document.createElement('h1'); gameTitle.id = 'm13-game-title'; gameTitle.className = 'bq5-screen__title'; gameTitle.textContent = 'Duelo 1×1';
+      gameHead.appendChild(gameTitle); gameScreen.appendChild(gameHead);
+      var gameRoot = global.document.createElement('div'); gameRoot.id = 'm13-game'; gameRoot.className = 'm13-game'; gameRoot.setAttribute('aria-live', 'polite');
+      gameScreen.appendChild(gameRoot); main.appendChild(gameScreen);
+    }
     return true;
   }
+
   function renderPlayers() {
     var root = el('#lan-players'); if (!root) return;
     while (root.firstChild) root.removeChild(root.firstChild);
     var names = state.role === 'guest'
       ? [{ name: state.remoteName, label: 'Anfitrião' }, { name: state.localName, label: 'Você' }]
-      : [{ name: state.localName, label: 'Você' }, { name: state.remoteName, label: state.connected ? 'Convidado' : 'Aguardando' }];
+      : [{ name: state.localName, label: 'Você' }, { name: state.remoteName, label: state.connected ? 'Convidado' : 'Aguardando convidado' }];
     names.forEach(function (entry) {
       var row = global.document.createElement('div'); row.className = 'bq5-list__item m13-player';
       var strong = global.document.createElement('strong'); strong.textContent = entry.name;
@@ -353,51 +414,87 @@
   function setConnectionUi(paired, inGame) {
     var screen = el('#screen-lan');
     if (!screen) return;
-    show(el('#lan-role'), !paired);
-    show(el('#lan-panel-host'), !paired && (!state.role || state.role === 'host'));
-    show(el('#lan-panel-join'), !paired && state.role === 'guest');
-    show(el('#m13-name-wrap'), !paired && !inGame);
+    if (inGame) { navigateScreen('m13-game'); return; }
+    if (paired) { navigateScreen('m13-lobby'); return; }
+    navigateScreen('lan');
+    show(el('#lan-role'), !state.role);
+    show(el('#lan-panel-host'), !state.role || state.role === 'host');
+    show(el('#lan-panel-join'), state.role === 'guest');
+    show(el('#m13-name-wrap'), true);
+    show(el('#m13-connect-reset'), !!state.role && !state.connected);
     var players = el('#lan-players');
     var playersSection = players && players.closest('.bq5-section');
-    if (playersSection) show(playersSection, !inGame);
-    var footer = screen.querySelector('.bq5-actionbar');
-    if (footer) show(footer, !paired);
+    if (playersSection) show(playersSection, !!(state.role && state.pc));
+  }
+  function themeGlyph(theme) {
+    return ({ all: '✦', cultura: '◈', economia: '↗', animais: '◉', vegetacao: '❋', cidades: '▦' })[theme] || '◆';
+  }
+  function themeDescription(theme) {
+    return ({ all: 'Questões dos cinco eixos', cultura: 'Patrimônio, costumes e sociedade', economia: 'Produção, trabalho e circulação', animais: 'Fauna e biodiversidade brasileira', vegetacao: 'Biomas, paisagens e clima', cidades: 'Território e vida urbana' })[theme] || 'Tema do duelo';
   }
   function renderLobby() {
     var root = el('#m13-lobby'); if (!root) return;
     var paired = !!(state.connected && state.sessionId && state.localPlayerId && state.remoteJoined);
-    setConnectionUi(paired, false);
-    root.hidden = !paired;
-    if (root.hidden) return;
-    status('Dois jogadores conectados. Definam o tema e iniciem a partida.');
+    if (!paired) { setConnectionUi(false, false); return; }
+    setConnectionUi(true, false);
     while (root.firstChild) root.removeChild(root.firstChild);
-    var title = global.document.createElement('h2'); title.className = 'bq5-section__title'; title.textContent = 'Tema da partida'; root.appendChild(title);
-    var summary = global.document.createElement('p'); summary.className = 'bq5-hint';
-    summary.textContent = state.role === 'host' ? 'Escolha o tema compartilhado. O convidado verá a mesma seleção.' : 'O anfitrião escolherá um tema compartilhado para os dois jogadores.';
-    root.appendChild(summary);
-    var select = global.document.createElement('select'); select.id = 'm13-theme-select'; select.className = 'bq5-input'; select.setAttribute('aria-label', 'Tema do duelo');
-    var labels = BQ5.multiplayer.duel.themeLabels();
-    state.themeOrder.forEach(function (key) {
-      var option = global.document.createElement('option'); option.value = key; option.textContent = labels[key]; select.appendChild(option);
+
+    var roster = global.document.createElement('div'); roster.className = 'm13-lobby-roster';
+    [
+      { name: state.role === 'host' ? state.localName : state.remoteName, role: 'Anfitrião', self: state.role === 'host' },
+      { name: state.role === 'guest' ? state.localName : state.remoteName, role: 'Convidado', self: state.role === 'guest' }
+    ].forEach(function (player) {
+      var card = global.document.createElement('div'); card.className = 'm13-lobby-player';
+      card.setAttribute('data-self', player.self ? 'true' : 'false');
+      var icon = global.document.createElement('span'); icon.className = 'm13-lobby-player__icon'; icon.setAttribute('aria-hidden', 'true'); icon.textContent = player.self ? '◎' : '○';
+      var info = global.document.createElement('span'); info.className = 'm13-lobby-player__info';
+      appendText(info, 'strong', 'm13-lobby-player__name', player.name);
+      appendText(info, 'small', 'm13-lobby-player__role', player.role + (player.self ? ' · Você' : ''));
+      var online = global.document.createElement('span'); online.className = 'm13-lobby-player__online'; online.textContent = 'Conectado';
+      card.appendChild(icon); card.appendChild(info); card.appendChild(online); roster.appendChild(card);
     });
-    select.value = state.theme;
-    if (state.role !== 'host' || state.hostReady) select.disabled = true;
-    root.appendChild(select);
-    var themeLabel = global.document.createElement('p'); themeLabel.className = 'm13-current-theme';
-    themeLabel.textContent = 'Tema definido: ' + (labels[state.theme] || 'Tema livre'); root.appendChild(themeLabel);
-    var readyInfo = global.document.createElement('p'); readyInfo.className = 'bq5-hint';
-    readyInfo.textContent = 'Anfitrião: ' + (state.hostReady ? 'pronto' : 'aguardando') + ' · Convidado: ' + (state.guestReady ? 'pronto' : 'aguardando'); root.appendChild(readyInfo);
-    var actions = global.document.createElement('div'); actions.className = 'm13-actions';
-    if (state.role === 'guest' && !state.guestReady) {
-      var ready = actionButton('Pronto para jogar', 'ready'); actions.appendChild(ready);
-    }
+    root.appendChild(roster);
+
+    var section = global.document.createElement('section'); section.className = 'm13-theme-section';
+    appendText(section, 'h2', 'bq5-section__title', 'Escolha o tema da partida');
+    appendText(section, 'p', 'm13-theme-intro', state.role === 'host'
+      ? 'Selecione o eixo temático. A escolha será atualizada no aparelho do convidado.'
+      : 'O anfitrião está escolhendo o tema. Você acompanha a seleção, sem controles nesta etapa.');
+    var grid = global.document.createElement('div'); grid.className = 'm13-theme-grid'; grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', 'Temas disponíveis');
+    var labels = BQ5.multiplayer.duel.themeLabels();
+    var order = state.themeOrder && state.themeOrder.length ? state.themeOrder : BQ5.multiplayer.duel.themes();
+    order.forEach(function (key) {
+      var button = global.document.createElement('button'); button.type = 'button'; button.className = 'm13-theme-card';
+      button.setAttribute('data-m13-action', 'theme'); button.setAttribute('data-value', key); button.setAttribute('data-theme', key);
+      button.setAttribute('aria-pressed', state.theme === key ? 'true' : 'false');
+      button.disabled = state.role !== 'host';
+      var symbol = global.document.createElement('span'); symbol.className = 'm13-theme-card__symbol'; symbol.setAttribute('aria-hidden', 'true'); symbol.textContent = themeGlyph(key);
+      var title = global.document.createElement('strong'); title.className = 'm13-theme-card__title'; title.textContent = labels[key] || key;
+      var description = global.document.createElement('span'); description.className = 'm13-theme-card__description'; description.textContent = themeDescription(key);
+      var mark = global.document.createElement('span'); mark.className = 'm13-theme-card__mark'; mark.textContent = state.theme === key ? 'Selecionado' : (state.role === 'host' ? 'Selecionar' : 'Aguardando');
+      button.appendChild(symbol); button.appendChild(title); button.appendChild(description); button.appendChild(mark); grid.appendChild(button);
+    });
+    section.appendChild(grid);
+    var selected = global.document.createElement('p'); selected.className = 'm13-theme-selected';
+    selected.textContent = 'Tema atual: ' + (labels[state.theme] || 'Tema livre'); section.appendChild(selected);
+    root.appendChild(section);
+
+    var statusPanel = global.document.createElement('div'); statusPanel.className = 'm13-lobby-status';
+    var statusIcon = global.document.createElement('span'); statusIcon.className = 'm13-lobby-status__icon'; statusIcon.textContent = state.role === 'host' ? '◆' : '…';
+    statusPanel.appendChild(statusIcon);
+    var statusText = appendText(statusPanel, 'p', 'm13-lobby-status__text', state.role === 'host'
+      ? 'Você controla a configuração. Inicie quando estiver satisfeito com a seleção.'
+      : 'Aguarde nesta tela. A partida começará automaticamente quando o anfitrião iniciar.');
+    statusText.id = 'm13-lobby-status';
+    root.appendChild(statusPanel);
+
     if (state.role === 'host') {
-      var hostReady = actionButton(state.hostReady ? 'Você está pronto' : 'Confirmar tema e ficar pronto', 'ready');
-      hostReady.disabled = state.hostReady; actions.appendChild(hostReady);
-      var start = actionButton('Iniciar duelo', 'start'); start.disabled = !(state.hostReady && state.guestReady); actions.appendChild(start);
+      var actions = global.document.createElement('div'); actions.className = 'm13-lobby-actions';
+      var start = actionButton('Iniciar duelo', 'start'); start.className = 'bq5-btn bq5-btn--primary bq5-btn--lg';
+      actions.appendChild(start);
+      var leave = actionButton('Sair da sala', 'leave'); leave.className = 'bq5-btn bq5-btn--ghost'; actions.appendChild(leave);
+      root.appendChild(actions);
     }
-    var leave = actionButton('Sair da sala', 'leave'); leave.className = 'bq5-btn bq5-btn--ghost'; actions.appendChild(leave);
-    root.appendChild(actions);
   }
   function actionButton(label, action, value) {
     var button = global.document.createElement('button');
@@ -408,8 +505,8 @@
     return button;
   }
   function publishLobby() {
-    renderPlayers(); renderLobby();
-    if (state.role === 'host') send({ type: 'lobby', theme: state.theme, themeOrder: state.themeOrder, hostReady: state.hostReady, guestReady: state.guestReady, hostName: state.localName });
+    renderLobby();
+    if (state.role === 'host') send({ type: 'lobby', theme: state.theme, themeOrder: state.themeOrder, hostName: state.localName });
   }
 
   function createRoom() {
@@ -418,8 +515,9 @@
     setConnectionUi(false, false);
     state.sessionId = randomId('s-'); state.fingerprint = fingerprint(); state.themeOrder = shuffledThemes(); state.theme = 'all';
     if (!state.fingerprint || !bankQuestions().length) { toast('O banco de questões ainda não está carregado.', 'error'); return; }
+    var createButton = el('#m13-create-room'); if (createButton) { createButton.disabled = true; createButton.textContent = 'Gerando convite…'; }
     try { state.pc = makePeerConnection(); }
-    catch (error) { status(error.message); return; }
+    catch (error) { status(error.message); if (createButton) { createButton.disabled = false; createButton.textContent = 'Criar sala e gerar convite'; } return; }
     var channel = state.pc.createDataChannel('bq5-m13', { ordered: true }); bindChannel(channel);
     state.pc.createOffer().then(function (offer) {
       return state.pc.setLocalDescription(offer);
@@ -427,10 +525,13 @@
       state.roomCode = makeCode('offer', state.pc.localDescription, state.sessionId);
       var field = el('#lan-host-code'); if (field) field.value = state.roomCode;
       renderPlayers();
-      status('Código criado. Envie-o ao outro aparelho conectado à mesma rede Wi-Fi. Depois, cole aqui o código de resposta.');
+      var answerField = el('#lan-host-answer'); if (answerField) show(answerField.closest('.bq5-field'), true);
+      var createButton = el('#m13-create-room'); if (createButton) show(createButton, false);
+      status('Convite pronto. Envie este código ao convidado. Quando ele devolver a resposta, cole-a no campo abaixo para concluir a conexão.');
     }).catch(function (error) {
       status('Não foi possível gerar a sala: ' + (error && error.message ? error.message : error));
       closePeer();
+      if (createButton) { createButton.disabled = false; createButton.textContent = 'Criar sala e gerar convite'; }
     });
   }
   function joinRoom() {
@@ -453,7 +554,9 @@
     }).then(function () { return waitForIce(state.pc); }).then(function () {
       state.answerCode = makeCode('answer', state.pc.localDescription, state.sessionId);
       var field = el('#lan-join-code'); if (field) field.value = state.answerCode;
-      status('Resposta gerada. Envie este código ao anfitrião e aguarde a confirmação.');
+      if (field) show(field.closest('.bq5-field'), true);
+      var joinButton = el('#lan-join-connect'); if (joinButton) show(joinButton, false);
+      status('Resposta gerada. Copie este código e envie ao anfitrião. Você avançará automaticamente quando ele confirmar.');
     }).catch(function (error3) {
       status('Não foi possível entrar na sala: ' + (error3 && error3.message ? error3.message : error3));
       closePeer();
@@ -466,9 +569,14 @@
     try { payload = parseCode(input && input.value, 'answer'); }
     catch (error) { status(error.message); return; }
     if (payload.sessionId !== state.sessionId) { status('O código de resposta pertence a outra sala.'); return; }
+    var acceptButton = el('#lan-host-accept');
+    if (acceptButton) { acceptButton.disabled = true; acceptButton.textContent = 'Conectando…'; }
     state.pc.setRemoteDescription(payload.description).then(function () {
       status('Resposta aceita. Estabelecendo conexão entre os aparelhos…');
-    }).catch(function (error2) { status('Não foi possível aceitar a resposta: ' + (error2 && error2.message ? error2.message : error2)); });
+    }).catch(function (error2) {
+      status('Não foi possível aceitar a resposta: ' + (error2 && error2.message ? error2.message : error2));
+      if (acceptButton) { acceptButton.disabled = false; acceptButton.textContent = 'Confirmar conexão'; }
+    });
   }
   function copyValue(selector) {
     var field = el(selector); if (!field || !field.value) { status('Não há código disponível para copiar.'); return; }
@@ -506,7 +614,7 @@
     else publishGameState();
   }
   function startMatch() {
-    if (state.role !== 'host' || !state.hostReady || !state.guestReady || !state.connected) return;
+    if (state.role !== 'host' || !state.connected || !state.remoteJoined) return;
     var created = BQ5.multiplayer.duel.create({
       questions: bankQuestions(), theme: state.theme,
       player1Name: state.localName, player2Name: state.remoteName
@@ -515,7 +623,6 @@
     state.game = created.game; state.resultShown = false; state.gameStarted = true;
     var api = ui(); if (api) api.emit('game:started', { mode: '1v1', theme: state.theme, count: 15 });
     setConnectionUi(true, true);
-    show(el('#m13-lobby'), false); show(el('#m13-game'), true);
     publishGameState();
   }
   function beginAnswerWindow() {
@@ -582,6 +689,7 @@
 
   function renderGame(view, question, remainingMs) {
     var root = el('#m13-game'); if (!root || !view) return;
+    navigateScreen('m13-game');
     root.hidden = false;
     state.lastView = view;
     while (root.firstChild) root.removeChild(root.firstChild);
@@ -657,29 +765,47 @@
   }
   function renderPlayerBox(player, self) {
     var box = global.document.createElement('section'); box.className = 'm13-player-box';
-    if (self) box.setAttribute('data-self', 'true');
-    appendText(box, 'h3', 'm13-player-box__name', player.name + (self ? ' (Você)' : ''));
-    appendText(box, 'strong', 'm13-player-box__hp', player.hp + ' HP');
+    box.setAttribute('data-self', self ? 'true' : 'false');
+    var top = global.document.createElement('div'); top.className = 'm13-player-box__top';
+    appendText(top, 'h3', 'm13-player-box__name', player.name + (self ? ' · Você' : ''));
+    var role = global.document.createElement('span'); role.className = 'm13-player-box__role'; role.textContent = self ? 'SEU PAINEL' : 'OPONENTE';
+    top.appendChild(role); box.appendChild(top);
+    var hpLine = global.document.createElement('div'); hpLine.className = 'm13-player-box__hp-line';
+    appendText(hpLine, 'strong', 'm13-player-box__hp', String(player.hp));
+    appendText(hpLine, 'span', 'm13-player-box__hp-label', 'HP');
+    hpLine.appendChild(global.document.createElement('span')).className = 'm13-player-box__spacer';
+    appendText(hpLine, 'span', 'm13-player-box__hp-max', '/' + (player.hpMax || 1000));
+    box.appendChild(hpLine);
     var hpTrack = global.document.createElement('div'); hpTrack.className = 'm13-hp-track';
     var hpFill = global.document.createElement('span'); hpFill.className = 'm13-hp-fill';
     hpFill.style.transform = 'scaleX(' + Math.max(0, Math.min(1, Number(player.hpRatio) || 0)) + ')';
     hpTrack.appendChild(hpFill); box.appendChild(hpTrack);
-    var cards = global.document.createElement('div'); cards.className = 'm13-card-strip';
+    var hand = global.document.createElement('div'); hand.className = 'm13-card-strip';
     player.hand.forEach(function (card) {
-      var label = global.document.createElement('span'); label.className = 'm13-card-chip';
-      label.textContent = card.themeLabel + ' · ' + card.difficultyLabel;
-      cards.appendChild(label);
+      var chip = global.document.createElement('span'); chip.className = 'm13-card-chip'; chip.setAttribute('data-theme', card.theme || 'all');
+      chip.textContent = card.themeLabel + ' · ' + card.difficultyLabel;
+      hand.appendChild(chip);
     });
-    box.appendChild(cards);
+    box.appendChild(hand);
     return box;
   }
   function renderCardButtons(parent, cards, action, label, enabled) {
     var list = global.document.createElement('div'); list.className = 'm13-card-list';
-    cards.forEach(function (card) {
+    cards.forEach(function (card, index) {
+      var theme = card.theme || 'all';
       var button = actionButton('', action, card.cardId); button.className = 'm13-card-button';
+      button.setAttribute('data-theme', theme);
+      button.setAttribute('aria-label', card.themeLabel + ', ' + card.difficultyLabel + '. ' + label);
+      var head = global.document.createElement('span'); head.className = 'm13-card-button__head';
+      appendText(head, 'span', 'm13-card-button__serial', 'CARTA ' + String(index + 1).padStart(2, '0'));
+      appendText(head, 'span', 'm13-card-button__stamp', 'BQ5');
+      button.appendChild(head);
+      var emblem = global.document.createElement('span'); emblem.className = 'm13-card-button__emblem'; emblem.setAttribute('aria-hidden', 'true'); emblem.textContent = themeGlyph(theme); button.appendChild(emblem);
       appendText(button, 'strong', 'm13-card-button__theme', card.themeLabel);
-      appendText(button, 'span', 'm13-card-button__difficulty', card.difficultyLabel);
-      appendText(button, 'span', 'm13-card-button__cta', label);
+      var footer = global.document.createElement('span'); footer.className = 'm13-card-button__footer';
+      appendText(footer, 'span', 'm13-card-button__difficulty', card.difficultyLabel);
+      appendText(footer, 'span', 'm13-card-button__cta', label);
+      button.appendChild(footer);
       if (!enabled) button.disabled = true;
       list.appendChild(button);
     });
@@ -709,10 +835,11 @@
     else if (action === 'accept-answer') acceptAnswer();
     else if (action === 'copy-host') copyValue('#lan-host-code');
     else if (action === 'copy-guest') copyValue('#lan-join-code');
-    else if (action === 'ready') {
-      if (state.role === 'host') { state.hostReady = true; publishLobby(); }
-      else if (state.role === 'guest') { state.guestReady = true; send({ type: 'ready' }); status('Pronto. Aguardando o anfitrião iniciar.'); }
-      renderLobby();
+    else if (action === 'reset') { cleanup(true); navigateScreen('lan'); status('Escolha criar uma sala ou entrar em uma sala existente.'); }
+    else if (action === 'theme') {
+      if (state.role === 'host' && state.connected && state.remoteJoined && BQ5.multiplayer.duel.themes().indexOf(String(value)) !== -1) {
+        state.theme = String(value); publishLobby();
+      }
     } else if (action === 'start') startMatch();
     else if (action === 'gift' || action === 'discard' || action === 'question' || action === 'answer') {
       if (action === 'answer') emitAction('answer', { choice: Number(value) });
@@ -723,11 +850,11 @@
     }
   }
   function bindDom() {
-    var screen = el('#screen-lan'); if (!screen || screen.__m13Bound) return;
-    screen.__m13Bound = true;
-    screen.addEventListener('click', function (event) {
-      var target = event.target && event.target.closest ? event.target.closest('[data-m13-action], [data-action]') : null;
-      if (!target || !screen.contains(target)) return;
+    var app = el('#bq5-app'); if (!app || app.__m13Bound) return;
+    app.__m13Bound = true;
+    app.addEventListener('click', function (event) {
+      var target = event.target && event.target.closest ? event.target.closest('[data-m13-action], [data-action^="lan-"]') : null;
+      if (!target || !app.contains(target)) return;
       var action = target.getAttribute('data-m13-action');
       var legacy = target.getAttribute('data-action');
       if (!action && legacy === 'lan-join') action = 'join-room';
@@ -748,12 +875,6 @@
       });
       show(el('#lan-panel-host'), value === 'host'); show(el('#lan-panel-join'), value === 'join');
     });
-    var selectTheme = screen;
-    selectTheme.addEventListener('change', function (event) {
-      if (event.target && event.target.id === 'm13-theme-select' && state.role === 'host' && !state.hostReady) {
-        state.theme = event.target.value; publishLobby();
-      }
-    });
   }
   function init() {
     if (initialized) return { ok: true, alreadyInitialized: true };
@@ -770,7 +891,7 @@
   M13.state = function () {
     return { initialized: initialized, role: state.role, connected: state.connected,
       phase: state.game ? state.game.phase() : null, sessionId: state.sessionId,
-      theme: state.theme, hostReady: state.hostReady, guestReady: state.guestReady };
+      theme: state.theme };
   };
   M13.destroy = function () {
     listeners.forEach(function (off) { if (typeof off === 'function') off(); });
