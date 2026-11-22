@@ -1,0 +1,46 @@
+/* M13 — estilos próprios do duelo LAN. Carregar depois de css/style.css. */
+.m13-name-field { margin: 0 0 1rem; }
+.m13-panel { margin-top: 1rem; }
+.m13-panel select { width: 100%; }
+.m13-player { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.m13-player__role { opacity: .72; font-size: .85em; }
+.m13-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1rem; }
+.m13-actions .bq5-btn { flex: 1 1 12rem; }
+.m13-game { display: grid; gap: 1rem; margin-top: 1rem; }
+.m13-game__top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .4rem 1rem; }
+.m13-round { font-weight: 800; letter-spacing: .08em; }
+.m13-theme { opacity: .78; }
+.m13-board { display: grid; grid-template-columns: 1fr; gap: .75rem; }
+.m13-player-box { min-width: 0; padding: 1rem; border: 1px solid rgba(255,255,255,.12); border-radius: 1rem; background: rgba(255,255,255,.035); }
+.m13-player-box[data-self="true"] { border-color: rgba(105,190,150,.58); }
+.m13-player-box__name { margin: 0 0 .35rem; font-size: 1rem; }
+.m13-player-box__hp { display: block; font-size: 1.45rem; font-variant-numeric: tabular-nums; }
+.m13-hp-track, .m13-timer__track { overflow: hidden; height: .55rem; margin-top: .5rem; border-radius: 999px; background: rgba(255,255,255,.12); }
+.m13-hp-fill, .m13-timer__fill { display: block; width: 100%; height: 100%; border-radius: inherit; background: currentColor; transform-origin: left center; transition: transform .18s linear; }
+.m13-card-strip { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .75rem; }
+.m13-card-chip { padding: .25rem .45rem; border-radius: .45rem; background: rgba(255,255,255,.08); font-size: .75rem; }
+.m13-phase { min-width: 0; padding: 1rem; border: 1px solid rgba(255,255,255,.12); border-radius: 1rem; background: rgba(255,255,255,.025); }
+.m13-phase__title { margin: 0 0 .5rem; font-size: 1.15rem; }
+.m13-instruction { font-weight: 700; }
+.m13-wait { opacity: .75; }
+.m13-card-list { display: grid; grid-template-columns: 1fr; gap: .55rem; margin: .85rem 0; }
+.m13-card-button { display: flex; flex-direction: column; align-items: flex-start; gap: .22rem; width: 100%; padding: .85rem 1rem; border: 1px solid rgba(255,255,255,.14); border-radius: .8rem; background: rgba(255,255,255,.045); color: inherit; text-align: left; cursor: pointer; }
+.m13-card-button:disabled { opacity: .48; cursor: default; }
+.m13-card-button__theme { font-size: 1rem; }
+.m13-card-button__difficulty, .m13-card-button__cta { opacity: .76; font-size: .83rem; }
+.m13-timer { margin: .75rem 0 1rem; }
+.m13-timer__value { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.m13-question { margin: .75rem 0; font-size: 1.12rem; line-height: 1.45; }
+.m13-options { display: grid; grid-template-columns: 1fr; gap: .55rem; }
+.m13-options .bq5-btn { justify-content: flex-start; min-height: 3rem; text-align: left; white-space: normal; }
+.m13-round-line { margin: .4rem 0; padding: .55rem .7rem; border-radius: .55rem; background: rgba(255,255,255,.045); }
+.m13-leave { margin-top: .5rem; }
+
+@media (min-width: 560px) {
+  .m13-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .m13-card-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .m13-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .m13-hp-fill, .m13-timer__fill { transition: none; }
+}
