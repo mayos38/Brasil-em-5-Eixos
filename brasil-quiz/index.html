@@ -1,21 +1,10 @@
 <!DOCTYPE html>
 <!-- ============================================================
-  brasil-quiz v0.2 modular — index.html  (MÓDULO 6)
-  Responsabilidade: ESTRUTURA estática da aplicação (casca + telas + templates).
-  Sem lógica: quem mostra/esconde telas e preenche dados são os módulos 7–15.
+  brasil-quiz v0.2 modular — index.html (MÓDULO 6)
+  Responsabilidade: estrutura estática da aplicação (casca, telas e templates).
+  Sem lógica: quem mostra/esconde telas e preenche dados são os módulos JS.
   Contrato de ids / data-action / estados: docs/UI_CONTRACT.md
-
-  Convenções:
-    - uma <section class="bq5-screen" data-screen="..."> por tela; só uma sem [hidden];
-    - ids prefixados pela tela (menu-, setup-, play-, results-, campaign-, handoff-, lan-, boot-);
-    - ações por data-action="..." (delegação de eventos, nunca onclick inline);
-    - componentes repetidos (chips, revisão, rota, modal...) em <template id="tpl-...">;
-    - alternativas da pergunta são SEMPRE 4 (o banco valida isso), por isso são estáticas;
-    - play-next inicia como "Confirmar" e passa a "Próxima pergunta"/"Ver resultado"
-      após a resposta; a seleção é feita nos quatro botões .bq5-option.
-  Carregamento clássico (sem ESM): os scripts podem ser carregados sem bundler.
-  Para buscar data/questions.json, abra a aplicação por servidor HTTP local; veja a
-  orientação na tela de erro e a configuração de bank.js.
+  Carregamento clássico (sem ESM): os scripts são carregados em ordem de dependência.
 ============================================================ -->
 <html lang="pt-BR">
 <head>
@@ -25,10 +14,11 @@
   <meta name="color-scheme" content="dark">
   <title>Brasil em 5 Eixos</title>
   <link rel="stylesheet" href="css/style.css">
+  <!-- M13 LAN 1×1: estilos isolados do módulo multiplayer. -->
+  <link rel="stylesheet" href="css/m13-lan.css">
 </head>
 <body>
   <a class="bq5-skip" href="#bq5-main">Pular para o conteúdo</a>
-
   <div id="bq5-app" class="bq5-app" data-screen="boot">
 
     <header id="bq5-topbar" class="bq5-topbar">
@@ -38,7 +28,6 @@
     </header>
 
     <main id="bq5-main" class="bq5-main" tabindex="-1">
-
       <!-- ===== BOOT: carregando / erro ao carregar o banco ===== -->
       <section id="screen-boot" class="bq5-screen bq5-boot" data-screen="boot" data-state="loading" aria-labelledby="boot-title">
         <header class="bq5-brand">
@@ -49,8 +38,7 @@
           <span class="bq5-spinner" aria-hidden="true"></span>
           <span id="boot-message">Carregando as questões…</span>
         </p>
-        <!-- A visibilidade deste bloco é controlada por data-state em .bq5-boot.
-             Não adicionar hidden aqui: o CSS precisa conseguir mostrá-lo no estado error. -->
+        <!-- A visibilidade deste bloco é controlada por data-state em .bq5-boot. -->
         <div id="boot-error" class="bq5-card bq5-boot__error">
           <h2 id="boot-error-title" class="bq5-card__title">Não foi possível carregar as questões</h2>
           <p id="boot-error-text">O arquivo <code>data/questions.json</code> não pôde ser lido.</p>
@@ -67,7 +55,6 @@
           <h1 id="menu-title" class="bq5-brand__name">Brasil em 5 Eixos</h1>
           <p class="bq5-brand__tagline">Cultura, economia, animais, vegetação e cidades — cinco eixos para explorar o Brasil!</p>
         </header>
-
         <section class="bq5-player-card" aria-labelledby="menu-player-name">
           <div class="bq5-player-card__identity">
             <span class="bq5-player-card__avatar" aria-hidden="true">🧭</span>
@@ -88,7 +75,6 @@
             </div>
           </div>
         </section>
-
         <nav class="bq5-menu" aria-label="Modos de jogo">
           <button class="bq5-menu__item" type="button" data-action="go-solo">
             <span class="bq5-icon" aria-hidden="true">🎯</span>
@@ -104,7 +90,7 @@
           </button>
           <button class="bq5-menu__item" type="button" data-action="go-lan">
             <span class="bq5-icon" aria-hidden="true">📡</span>
-            <span class="bq5-menu__text"><span class="bq5-menu__title">Sala com amigos</span><span class="bq5-menu__hint">Crie uma sala ou entre em uma existente</span></span>
+            <span class="bq5-menu__text"><span class="bq5-menu__title">Sala com amigos</span><span class="bq5-menu__hint">Duelo 1×1 em dois aparelhos na mesma rede Wi-Fi</span></span>
           </button>
         </nav>
         <nav class="bq5-menu-tools" aria-label="Perfil e preferências">
@@ -122,18 +108,13 @@
         <p id="menu-bank-info" class="bq5-footnote"></p>
       </section>
 
-      <!-- ===== CONFIGURAÇÃO (solo e grupo) ===== -->
+      <!-- ===== CONFIGURAÇÃO SOLO ===== -->
       <section id="screen-setup" class="bq5-screen" data-screen="setup" aria-labelledby="setup-title" hidden>
         <header class="bq5-screen__head">
           <h1 id="setup-title" class="bq5-screen__title">Jogar sozinho</h1>
           <p id="setup-lead" class="bq5-screen__lead">Monte sua partida.</p>
         </header>
         <div class="bq5-screen__body">
-          <section id="setup-section-mode" class="bq5-section" aria-labelledby="setup-modes-title">
-            <h2 id="setup-modes-title" class="bq5-section__title">Modalidade</h2>
-            <div id="setup-modes" class="bq5-choices" role="radiogroup" aria-labelledby="setup-modes-title"></div>
-            <p id="setup-mode-hint" class="bq5-hint">A partida individual está disponível. As demais modalidades serão habilitadas nos módulos próprios.</p>
-          </section>
           <section id="setup-section-themes" class="bq5-section" aria-labelledby="setup-themes-title">
             <h2 id="setup-themes-title" class="bq5-section__title">Eixo geográfico</h2>
             <div id="setup-themes" class="bq5-choices" role="radiogroup" aria-labelledby="setup-themes-title"></div>
@@ -184,15 +165,9 @@
           </div>
           <button id="play-quit" class="bq5-btn bq5-btn--danger bq5-btn--sm" type="button" data-action="quit-game">Sair</button>
           <div class="bq5-hud__meters">
-            <div id="play-progress" class="bq5-question-progress" role="progressbar"
-                 aria-label="Progresso da partida" aria-valuemin="0" aria-valuemax="10"
-                 aria-valuenow="0" aria-valuetext="0 de 10 perguntas concluídas">
-              <!-- O módulo 10 cria um .bq5-progress-pip para cada questão. -->
-            </div>
+            <div id="play-progress" class="bq5-question-progress" role="progressbar" aria-label="Progresso da partida" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0" aria-valuetext="0 de 10 perguntas concluídas"></div>
           </div>
         </div>
-
-        <!-- Elenco: espaço reservado p/ personagem e companheiro animal (sem arte por enquanto) -->
         <div id="play-cast" class="bq5-cast" data-mood="idle">
           <figure id="play-player-slot" class="bq5-companion" data-slot="player" data-filled="false">
             <div class="bq5-companion__frame"><div class="bq5-companion__art" data-art aria-hidden="true"></div></div>
@@ -204,15 +179,10 @@
             <figcaption id="play-pet-name" class="bq5-companion__name">Companheiro</figcaption>
           </figure>
         </div>
-
         <ol id="play-roster" class="bq5-roster" aria-label="Placar" hidden></ol>
-
         <article class="bq5-question">
           <div class="bq5-question__timer" role="group" aria-label="Tempo da questão">
-            <div id="play-timer" class="bq5-meter bq5-meter--time" data-level="ok"
-                 role="timer" aria-label="Tempo restante" style="--p:1">
-              <span class="bq5-meter__fill"></span>
-            </div>
+            <div id="play-timer" class="bq5-meter bq5-meter--time" data-level="ok" role="timer" aria-label="Tempo restante" style="--p:1"><span class="bq5-meter__fill"></span></div>
             <span id="play-time-left" class="bq5-hud__time bq5-num">15 s</span>
           </div>
           <div id="play-tags" class="bq5-question__tags">
@@ -222,21 +192,18 @@
           </div>
           <h2 id="play-question" class="bq5-question__text">Texto da pergunta</h2>
         </article>
-
         <div id="play-options" class="bq5-options" role="group" aria-labelledby="play-question">
           <button class="bq5-option" type="button" data-index="0"><span class="bq5-option__key" aria-hidden="true">A</span><span class="bq5-option__text"></span></button>
           <button class="bq5-option" type="button" data-index="1"><span class="bq5-option__key" aria-hidden="true">B</span><span class="bq5-option__text"></span></button>
           <button class="bq5-option" type="button" data-index="2"><span class="bq5-option__key" aria-hidden="true">C</span><span class="bq5-option__text"></span></button>
           <button class="bq5-option" type="button" data-index="3"><span class="bq5-option__key" aria-hidden="true">D</span><span class="bq5-option__text"></span></button>
         </div>
-
         <div id="play-feedback" class="bq5-feedback" data-kind="correct" hidden>
           <p id="play-feedback-title" class="bq5-feedback__title"></p>
           <p id="play-feedback-points" class="bq5-feedback__points"></p>
           <p id="play-feedback-text" class="bq5-feedback__text"></p>
         </div>
         <p id="play-live" class="bq5-sr" role="status" aria-live="polite"></p>
-
         <div class="bq5-actionbar">
           <button id="play-next" class="bq5-btn bq5-btn--primary bq5-btn--lg" type="button" data-action="next" disabled>Confirmar</button>
         </div>
@@ -312,11 +279,11 @@
         <button id="campaign-reset" class="bq5-btn bq5-btn--ghost bq5-btn--block" type="button" data-action="campaign-reset">Recomeçar campanha</button>
       </section>
 
-      <!-- ===== SALA COM AMIGOS (esqueleto; o módulo 14 pode detalhar DENTRO desta tela) ===== -->
+      <!-- ===== M13: SALA COM AMIGOS (duelo 1×1 entre dispositivos) ===== -->
       <section id="screen-lan" class="bq5-screen" data-screen="lan" aria-labelledby="lan-title" hidden>
         <header class="bq5-screen__head">
           <h1 id="lan-title" class="bq5-screen__title">Sala com amigos</h1>
-          <p id="lan-lead" class="bq5-screen__lead">Crie uma sala ou entre em uma existente.</p>
+          <p id="lan-lead" class="bq5-screen__lead">Conecte dois aparelhos à mesma rede Wi-Fi e troque os códigos de conexão por copiar e colar.</p>
         </header>
         <div id="lan-role" class="bq5-choices" role="radiogroup" aria-label="Papel na sala">
           <button class="bq5-choice" type="button" role="radio" aria-checked="true" aria-controls="lan-panel-host" tabindex="0" data-value="host"><span class="bq5-choice__label">Criar sala</span></button>
@@ -355,7 +322,6 @@
           <button id="lan-start" class="bq5-btn bq5-btn--primary bq5-btn--lg" type="button" data-action="lan-start" disabled>Começar partida</button>
         </div>
       </section>
-
     </main>
 
     <div id="bq5-modal-root"></div>
@@ -368,17 +334,14 @@
 
   <!-- =======================================================
     TEMPLATES (clonados pelo ui.js; sem ids internos para não duplicar)
-       ============================================================ -->
-
-  <!-- chip de escolha: tema, dificuldade, papel. O JS define data-value,
-       rótulo, aria-checked e tabindex (um radio ativo recebe tabindex="0"). -->
+  ============================================================ -->
+  <!-- chip de escolha: tema, dificuldade, papel. -->
   <template id="tpl-choice">
     <button class="bq5-choice" type="button" role="radio" aria-checked="false" tabindex="-1" data-value="">
       <span class="bq5-choice__label"></span>
       <span class="bq5-choice__hint"></span>
     </button>
   </template>
-
   <!-- campo de nome de jogador (grupo no mesmo aparelho) -->
   <template id="tpl-player-field">
     <div class="bq5-list__item">
@@ -388,7 +351,6 @@
       </label>
     </div>
   </template>
-
   <!-- item do placar (multiplayer): personagem e companheiro em miniatura -->
   <template id="tpl-roster-item">
     <li class="bq5-roster__item" data-active="false">
@@ -397,7 +359,6 @@
       <span class="bq5-companion bq5-companion--sm" data-slot="pet" data-filled="false"><span class="bq5-companion__frame"><span class="bq5-companion__art" data-art aria-hidden="true"></span></span></span>
     </li>
   </template>
-
   <!-- item da classificação final -->
   <template id="tpl-ranking-item">
     <li class="bq5-ranking__item" data-pos="1">
@@ -406,7 +367,6 @@
       <span class="bq5-ranking__score bq5-num"></span>
     </li>
   </template>
-
   <!-- revisão educativa de uma questão -->
   <template id="tpl-review-item">
     <article class="bq5-review" data-ok="true">
@@ -416,7 +376,6 @@
       <p class="bq5-review__expl"></p>
     </article>
   </template>
-
   <!-- etapa da campanha; estados: locked | available | done; data-region define a cor -->
   <template id="tpl-route-node">
     <li class="bq5-route__node" data-state="available" data-region="">
@@ -427,7 +386,6 @@
       </button>
     </li>
   </template>
-
   <!-- jogador na sala (LAN); estados: connecting | ready -->
   <template id="tpl-lan-player">
     <div class="bq5-list__item" data-state="ready">
@@ -435,7 +393,6 @@
       <span data-role="name"></span>
     </div>
   </template>
-
   <!-- diálogo de confirmação -->
   <template id="tpl-modal">
     <div class="bq5-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -450,18 +407,14 @@
       </div>
     </div>
   </template>
-
   <!-- conteúdo opcional do diálogo de opções do menu -->
   <template id="tpl-menu-options">
     <div class="bq5-menu-options">
-      <button class="bq5-btn bq5-btn--secondary bq5-btn--block" type="button" data-action="toggle-motion" aria-pressed="false">
-        Reduzir animações nesta sessão: desativado
-      </button>
+      <button class="bq5-btn bq5-btn--secondary bq5-btn--block" type="button" data-action="toggle-motion" aria-pressed="false">Reduzir animações nesta sessão: desativado</button>
       <p class="bq5-hint">A preferência vale até fechar ou atualizar esta sessão. A preferência de acessibilidade configurada no dispositivo continua sendo respeitada.</p>
       <p class="bq5-hint">Efeitos sonoros e música ainda não estão disponíveis.</p>
     </div>
   </template>
-
   <!-- aviso rápido; data-kind: info | success | error -->
   <template id="tpl-toast">
     <p class="bq5-toast" data-kind="info"></p>
@@ -469,7 +422,7 @@
 
   <!-- ============================================================
        SCRIPTS — ordem obrigatória (cada módulo depende dos anteriores)
-       ============================================================ -->
+  ============================================================ -->
   <script src="js/config.js"></script>
   <script src="js/util.js"></script>
   <script src="js/storage.js"></script>
@@ -480,13 +433,13 @@
   <script src="js/screens/setup.js"></script>            <!-- módulo 9 -->
   <script src="js/screens/play.js"></script>             <!-- módulo 10 -->
   <script src="js/screens/results.js"></script>          <!-- módulo 11 -->
+  <script src="js/systems/hp.js"></script>                <!-- módulo 18: serviço de HP compartilhado -->
   <script src="js/screens/campaign.js"></script>         <!-- módulo 12 -->
-  <!-- PENDENTES: módulos 13–15
-  <script src="js/multiplayer/local.js"></script>        (módulo 13)
-  <script src="js/multiplayer/lan.js"></script>          (módulo 14)
-  <script src="js/main.js"></script>                     (módulo 15)
-  -->
-  <!-- DEV-PREVIEW: pré-visualização visual temporária do menu (?preview=menu), sem carregar banco nem iniciar partida. REMOVER no módulo 15. -->
+  <!-- M13: motor de duelo, seguido pelo transporte WebRTC. -->
+  <script src="js/multiplayer/duel-engine.js"></script>
+  <script src="js/multiplayer/m13-lan.js"></script>
+
+  <!-- DEV-PREVIEW: pré-visualização visual temporária do menu (?preview=menu). -->
   <script src="../dev/ui-preview.js"></script>
 </body>
 </html>
