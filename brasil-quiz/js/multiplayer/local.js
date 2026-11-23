@@ -474,7 +474,7 @@
       }
     }
     path.setAttribute('d', d);
-    path.setAttribute('fill', '#111111');
+    path.setAttribute('fill', '#000000');
     path.setAttribute('shape-rendering', 'crispEdges');
     svg.appendChild(path);
     clearNode(target);
