@@ -78,8 +78,11 @@ Os eventos são delegados por `ui.js` a partir de um ancestral estável. Não cr
 | `mp-pick-mode` | Escolher o modo do duelo pelo `data-value` (`classic` | `alternative`; este último desabilitado). |
 | `mp-role` | Escolher `host` (criar sala) ou `join` (entrar em sala) na criação da partida. |
 | `mp-copy` | Copiar o código do anfitrião (`host`) ou o código de resposta (`join`). |
+| `mp-qr-toggle` | Exibir/ocultar QR Code local do código do anfitrião (`host`) ou da resposta do convidado (`join`); é suplementar à cópia/colagem e não solicita acesso à câmera. |
+| `mp-qr-scan` | Abrir a câmera somente após ação explícita para ler QR no próprio navegador, quando BarcodeDetector estiver disponível; preenche o campo correto sem conectar automaticamente. |
+| `mp-qr-scan-close` | Encerrar a câmera e fechar a leitura de QR. |
 | `mp-host-connect` | Anfitrião aplica o código de resposta do convidado e conecta. |
-| `mp-join-go` | Convidado cola o código da sala e gera seu código de resposta. |
+| `mp-join-go` | Convidado confirma o código da sala (colado ou lido por QR) e gera seu código de resposta. |
 | `mp-select-theme` | Anfitrião escolhe `all` ou um eixo (rádio dinâmico em `#mp-themes`). |
 | `mp-start` | Anfitrião inicia a partida. |
 | `mp-confirm` | Confirma a alternativa selecionada no duelo (não pode ser trocada depois). |
@@ -195,7 +198,7 @@ O histórico usa `storage.getJSON()`/`storage.setJSON()` com a chave `config.sto
 ### Multiplayer 1x1 (Módulo 13)
 
 `screen-mp-mode`, `mp-mode-title`, `mp-mode-classic`, `mp-classic-text`, `mp-mode-alt`, `mp-alt-text`.
-`screen-mp-setup`, `mp-setup-title`, `mp-setup-lead`, `mp-nick`, `mp-role-title`, `mp-role`, `mp-role-hint`, `mp-panel-host`, `mp-host-code`, `mp-host-copy`, `mp-host-answer`, `mp-host-connect`, `mp-panel-join`, `mp-join-offer`, `mp-join-go`, `mp-join-code`, `mp-join-copy`, `mp-status`.
+`screen-mp-setup`, `mp-setup-title`, `mp-setup-lead`, `mp-nick`, `mp-role-title`, `mp-role`, `mp-role-hint`, `mp-panel-host`, `mp-host-code`, `mp-host-copy`, `mp-host-qr-toggle`, `mp-host-qr-panel`, `mp-host-qr`, `mp-host-answer`, `mp-host-connect`, `mp-host-scan`, `mp-host-scan-note`, `mp-panel-join`, `mp-join-offer`, `mp-join-go`, `mp-join-code`, `mp-join-copy`, `mp-join-qr-toggle`, `mp-join-qr-panel`, `mp-join-qr`, `mp-join-scan`, `mp-join-scan-note`, `mp-status`, `mp-qr-scanner`, `mp-qr-scanner-title`, `mp-qr-video`, `mp-qr-scan-status`.
 `screen-mp-theme`, `mp-theme-title`, `mp-theme-lead`, `mp-themes-title`, `mp-themes`, `mp-theme-hint`, `mp-leave-theme`, `mp-start`.
 `screen-mp-wait`, `mp-wait-title`, `mp-wait-text`, `mp-leave-wait`.
 `screen-mp-play`, `mp-play-title`, `mp-quit`, `mp-round`, `mp-total`, `mp-target`, `mp-score`, `mp-score-me`, `mp-score-opp`, `mp-name-me`, `mp-name-opp`, `mp-progress`, `mp-opp-status`, `mp-timer`, `mp-time-left`, `mp-tag-theme`, `mp-tag-region`, `mp-tag-diff`, `mp-question`, `mp-options`, `mp-feedback`, `mp-feedback-title`, `mp-feedback-points`, `mp-feedback-text`, `mp-live`, `mp-confirm`.
