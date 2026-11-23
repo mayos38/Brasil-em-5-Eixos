@@ -13,13 +13,13 @@
  * {
  *   "version": 1,            // opcional — inteiro
  *   "source": "texto",      // opcional — origem do banco
- *   "count": 508,            // opcional (valor ilustrativo) — se presente, deve bater com o tamanho real; divergência => apenas aviso. Pode ser omitido: o total é sempre calculado de questions.length
+ *   "count": 107,            // opcional — deve bater com o tamanho real (divergência => aviso)
  *   "questions": [           // OBRIGATÓRIO — array não vazio
  *     {
  *       "id": 0,             // OBRIGATÓRIO — inteiro único no banco
  *       "theme": "cultura",  // OBRIGATÓRIO — um dos BQ5.config.themes
  *       "region": "norte",   // OBRIGATÓRIO — uma das BQ5.config.regions
- *       "difficulty": 1,     // OBRIGATÓRIO — inteiro com chave em BQ5.config.pointsBase (1..4)
+ *       "difficulty": 1,     // OBRIGATÓRIO — inteiro com chave em BQ5.config.pointsBase (1..3)
  *       "question": "texto", // OBRIGATÓRIO — string não vazia
  *       "options": ["a","b","c","d"],  // OBRIGATÓRIO — exatamente 4 strings não vazias e únicas
  *       "answer": 0,         // OBRIGATÓRIO — índice (0..3) da alternativa correta em options

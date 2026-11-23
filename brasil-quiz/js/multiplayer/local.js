@@ -578,6 +578,13 @@
     if (restoreFocus && trigger && typeof trigger.focus === 'function') trigger.focus();
   }
 
+  // Mensagem para quando o jsQR não pôde ser usado, com o motivo técnico.
+  function engineMissingMessage(fallbackHint) {
+    var reader = qrReader();
+    var issue = reader && typeof reader.lastIssue === 'function' ? reader.lastIssue() : '';
+    return 'Não consegui iniciar o leitor de QR' + (issue ? ' (' + issue + ')' : '') + '. ' + fallbackHint;
+  }
+
   // Recebe o texto lido (câmera ou foto). Retorna Promise: true = aceito e
   // aplicado ao campo; string = mensagem de por que não serve.
   function handleScannedText(target, rawText) {
@@ -626,7 +633,7 @@
       onText: function (text) { return handleScannedText(which, text); },
       onError: function () {
         stopQrScanner(true);
-        setStatus('Leitor de QR não encontrado no projeto. Use “Ler por foto” ou cole o código manualmente.', 'info');
+        setStatus(engineMissingMessage('Use “Ler por foto” ou cole o código manualmente.'), 'info');
       }
     });
     qrScanner.session = session;
@@ -637,7 +644,7 @@
       var message = error && error.name === 'NotAllowedError'
         ? 'Acesso à câmera negado. Permita o uso da câmera, use “Ler por foto” ou cole o código manualmente.'
         : (code === 'NO_ENGINE'
-          ? 'Leitor de QR não encontrado no projeto (js/vendor/jsQR.min.js). Use “Ler por foto” ou cole o código manualmente.'
+          ? engineMissingMessage('Use “Ler por foto” ou cole o código manualmente.')
           : 'Não foi possível iniciar a câmera. Use “Ler por foto” ou cole o texto manualmente.');
       setStatus(message, 'info');
     });
@@ -670,7 +677,7 @@
     }, function (error) {
       var code = error && error.code;
       setStatus(code === 'NO_ENGINE'
-        ? 'Leitor de QR não encontrado no projeto (js/vendor/jsQR.min.js). Cole o código manualmente.'
+        ? engineMissingMessage('Cole o código manualmente.')
         : 'Não encontrei um QR Code nessa imagem. Chegue mais perto, deixe o QR inteiro e nítido, aumente o brilho da outra tela e tente de novo.', 'error');
     }).then(function () {
       input.value = '';

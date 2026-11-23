@@ -49,16 +49,6 @@
     return a;
   }
 
-  // Tempo (ms) por questão para a dificuldade: config.questionTimeMs pode ser
-  // um objeto { tier: ms } ou, por compatibilidade, um número único.
-  function timeFor(diff) {
-    var c = cfg(), t = c.questionTimeMs;
-    if (t && typeof t === 'object') {
-      if (isInt(t[diff]) && t[diff] > 0) return t[diff];
-    } else if (isInt(t) && t > 0) return t;
-    return isInt(c.questionTimeDefaultMs) && c.questionTimeDefaultMs > 0 ? c.questionTimeDefaultMs : 15000;
-  }
-
   function isInt(v) { return typeof v === 'number' && isFinite(v) && Math.floor(v) === v; }
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -243,8 +233,7 @@
       right: 0,
       review: [],
       locked: false,
-      limitMs: timeFor(diff),
-      tEnd: clock() + timeFor(diff),
+      tEnd: clock() + (c.questionTimeMs || 15000),
       lastChoice: -1,
       finished: false,
       result: null
@@ -255,7 +244,7 @@
   /**
    * Snapshot do estado da partida ativa (valores primitivos; seguro para a UI).
    * null se não há partida. Campos: mode, theme, diff, region, index (0-based),
-   * total, score, right, locked, finished, timeLimitMs (duração por questão).
+   * total, score, right, locked, finished.
    */
   E.state = function () {
     if (!G) return null;
@@ -269,8 +258,7 @@
       score: G.score,
       right: G.right,
       locked: G.locked,
-      finished: G.finished,
-      timeLimitMs: G.limitMs
+      finished: G.finished
     };
   };
 
@@ -347,7 +335,7 @@
 
   /**
    * Avança para a próxima questão OU finaliza a partida se era a última.
-   * A nova questão recebe um prazo integral (tempo da dificuldade, config.questionTimeMs[diff]) — mesmo papel do
+   * A nova questão recebe um prazo integral (questionTimeMs) — mesmo papel do
    * qView() do protótipo, que redefinía tEnd ao exibir cada pergunta.
    *
    * Retorna { ok:true, finished:false, index, total } ou,
@@ -369,7 +357,7 @@
     G.i++;
     G.locked = false;
     G.lastChoice = -1;
-    G.tEnd = clock() + G.limitMs;
+    G.tEnd = clock() + (c.questionTimeMs || 15000);
     return { ok: true, finished: false, index: G.i, total: G.quiz.length };
   };
 

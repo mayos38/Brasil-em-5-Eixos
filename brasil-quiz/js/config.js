@@ -23,24 +23,16 @@
       sudeste: 'Sudeste', sul: 'Sul'
     },
 
-    // Dificuldades disponíveis no setup e faixas do banco que cada uma usa.
-    // Alpha #1 (2026-11): nomenclatura renomeada — "Fácil" (antes "Educativo")
-    // e "Padrão", que substitui as opções "Normal"/"Médio"; a chave interna
-    // 'normal' foi mantida para não migrar estado persistido nem regras do motor.
+    // Dificuldades disponíveis no setup e faixas do banco que cada uma usa
     tierLabels: {
-      edu: 'Fácil', normal: 'Padrão', dificil: 'Difícil', geografo: 'Geógrafo'
+      edu: 'Educativo (fácil + explicações)', normal: 'Normal', medio: 'Médio', dificil: 'Difícil'
     },
-    tiers: { edu: [1], normal: [1, 2], dificil: [3], geografo: [4] },
+    tiers: { edu: [1], normal: [1, 2], medio: [2, 3], dificil: [3] },
 
     // Pontuação: base por dificuldade + bônus de tempo (segundos restantes, com teto)
-    pointsBase: { 1: 10, 2: 20, 3: 40, 4: 80 },
+    pointsBase: { 1: 10, 2: 20, 3: 40 },
     timeBonusMax: 7,
-    // Tempo por questão (ms) conforme a dificuldade escolhida (chaves de tiers).
-    // Alpha #1 (2026-11): balanceamento do modo solo — Fácil 30s, Padrão 30s,
-    // Difícil 40s e Geógrafo 50s.
-    // A campanha usa sempre 'normal'. Dificuldade sem entrada => questionTimeDefaultMs.
-    questionTimeMs: { edu: 30000, normal: 30000, dificil: 40000, geografo: 50000 },
-    questionTimeDefaultMs: 15000,
+    questionTimeMs: 15000,
 
     // Modos e quantidades padrão
     soloQuestionCount: 10,

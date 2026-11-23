@@ -36,6 +36,8 @@
   var sampleCanvas = null;
   var nativePromise = null;
   var jsqrPromise = null;
+  var loadAttempts = 0;
+  var lastIssue = '';
 
   function fail(code, message) {
     var error = new Error(message || code);
@@ -68,21 +70,50 @@
     return new Promise(function (resolve, reject) {
       var doc = global.document;
       var tag = doc.createElement('script');
+      var scriptError = '';
+      function onWindowError(event) { // erro de execução/sintaxe dentro do jsQR
+        if (event && event.filename && String(event.filename).indexOf('jsQR') !== -1) scriptError = String(event.message || 'erro de script');
+      }
+      if (global.addEventListener) global.addEventListener('error', onWindowError);
+      function cleanup() { if (global.removeEventListener) global.removeEventListener('error', onWindowError); }
       tag.src = src;
       tag.async = true;
-      tag.onload = function () { resolve(); };
-      tag.onerror = function () { if (tag.parentNode) tag.parentNode.removeChild(tag); reject(fail('NO_ENGINE', 'jsQR não encontrado')); };
+      tag.onload = function () { cleanup(); resolve(scriptError); };
+      tag.onerror = function () {
+        cleanup();
+        if (tag.parentNode) tag.parentNode.removeChild(tag);
+        reject(fail('NO_ENGINE', 'arquivo não carregou (404, bloqueio ou cache): ' + src));
+      };
       doc.head.appendChild(tag);
     });
   }
 
-  // Resolve com a função jsQR, ou null se o arquivo não estiver no projeto.
+  function pickJsQr() {
+    var fn = global.jsQR;
+    if (fn && typeof fn !== 'function' && typeof fn.default === 'function') fn = fn.default; // alguns builds exportam { default }
+    return typeof fn === 'function' ? fn : null;
+  }
+
+  // Resolve com a função jsQR, ou null se não foi possível (motivo em lastIssue).
   function getJsQr() {
-    if (typeof global.jsQR === 'function') return Promise.resolve(global.jsQR);
+    var ready = pickJsQr();
+    if (ready) return Promise.resolve(ready);
     if (jsqrPromise) return jsqrPromise;
-    jsqrPromise = loadScript(VENDOR_SRC).then(function () {
-      return typeof global.jsQR === 'function' ? global.jsQR : null;
-    }, function () { jsqrPromise = null; return null; }); // permite tentar de novo depois
+    // Da segunda tentativa em diante, ignora cache do navegador (ex.: 404 guardado).
+    var src = VENDOR_SRC + (loadAttempts++ > 0 ? '?r=' + Date.now() : '');
+    jsqrPromise = loadScript(src).then(function (scriptError) {
+      var fn = pickJsQr();
+      if (fn) { lastIssue = ''; return fn; }
+      lastIssue = scriptError
+        ? 'o arquivo carregou mas deu erro: ' + scriptError + ' (navegador antigo ou arquivo errado)'
+        : 'o arquivo carregou mas não definiu jsQR (confirme que é dist/jsQR.js e não uma página de erro)';
+      jsqrPromise = null;
+      return null;
+    }, function (error) {
+      lastIssue = error && error.message ? error.message : 'falha ao carregar';
+      jsqrPromise = null; // permite tentar de novo depois
+      return null;
+    });
     return jsqrPromise;
   }
 
@@ -282,6 +313,7 @@
     liveSupported: liveSupported,
     startLive: startLive,
     decodeFile: decodeFile,
-    release: release
+    release: release,
+    lastIssue: function () { return lastIssue; }
   };
 })(globalThis);
