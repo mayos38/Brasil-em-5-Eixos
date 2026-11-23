@@ -166,7 +166,10 @@
     var cfg = config();
     if (result.mode === 'solo') parts.push('Modo solo');
     else if (result.mode === 'campaign') parts.push('Campanha');
-    else if (result.mode === '1v1' || result.mode === '1x1' || result.mode === 'duel') parts.push('Confronto 1x1');
+    else if (result.mode === '1v1' || result.mode === '1x1' || result.mode === 'duel') {
+      parts.push('Confronto 1x1');
+      if (result.raw && result.raw.variantLabel) parts.push(String(result.raw.variantLabel));
+    }
     else if (isMultiplayerMode(result.mode)) parts.push('Multiplayer');
     else parts.push(String(result.mode || 'Partida'));
     if (result.theme) parts.push(result.theme === 'all' ? 'Todos os eixos' : label(cfg.themeLabels, result.theme, result.theme));
@@ -269,7 +272,7 @@
       var score = item.querySelector('.bq5-ranking__score');
       if (pos) pos.textContent = String(position) + 'º';
       if (name) name.textContent = String(entry.name || entry.playerName || entry.label || ('Jogador ' + (index + 1)));
-      if (score) score.textContent = safeNumber(entry.score, 0) + ' pontos';
+      if (score) score.textContent = entry.scoreText != null ? String(entry.scoreText) : safeNumber(entry.score, 0) + ' pontos';
       root.appendChild(fragment);
     });
     api.hidden('#results-ranking-wrap', root.children.length === 0);
@@ -335,11 +338,13 @@
       diff: result.diff,
       region: result.region,
       outcome: resolveOutcome(result),
+      variant: result.raw && result.raw.variant ? String(result.raw.variant) : null,
       players: (result.players || result.ranking || []).map(function (player) {
         return {
           id: player && player.id != null ? String(player.id) : null,
           name: String(player && (player.name || player.playerName || player.label) || 'Jogador'),
           score: safeNumber(player && player.score, 0),
+          right: safeNumber(player && player.right, 0),
           rank: safeNumber(player && (player.rank || player.position), 0)
         };
       }),
@@ -357,6 +362,14 @@
     if (history.length > HISTORY_LIMIT) history = history.slice(0, HISTORY_LIMIT);
     s.setJSON(key, history);
     return true;
+  }
+
+  // Registra no histórico um resultado que NÃO passa pela tela de resultados
+  // (ex.: modo alternativo do multiplayer, que tem tela própria). Mesmo formato do histórico.
+  function record(source) {
+    if (!source || typeof source !== 'object') return false;
+    var review = Array.isArray(source.review) ? source.review.slice() : [];
+    return recordHistory(normalizeResult(source, review, null));
   }
 
   function getHistory(limit) {
@@ -454,6 +467,7 @@
     init: init,
     show: show,
     replay: replay,
+    record: record,
     toMenu: toMenu,
     getHistory: getHistory,
     current: function () { return clonePlain(currentResult); },

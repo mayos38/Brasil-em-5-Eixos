@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Teste estrutural da interface dos Módulos 6–12 — Brasil em 5 Eixos.
+"""Teste estrutural da interface dos Módulos 6–11 — Brasil em 5 Eixos.
 
 Uso:
     python tests/run_ui_structure.py [raiz_do_projeto]
@@ -17,17 +17,17 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 SCREENS = (
-    'boot', 'menu', 'setup', 'play', 'handoff', 'results', 'campaign', 'lan'
+    'boot', 'menu', 'setup', 'play', 'handoff', 'results', 'campaign', 'lan',
+    'mp-mode', 'mp-setup', 'mp-theme', 'mp-wait', 'mp-play',
+    'mp-alt-pick', 'mp-alt-play', 'mp-alt-end', 'mp-alt-msg'
 )
 BASE_SCRIPTS = (
     'js/config.js', 'js/util.js', 'js/storage.js', 'js/bank.js', 'js/engine.js'
 )
-ACTIVE_UI_SCRIPTS = (
-    'js/ui.js', 'js/screens/menu.js', 'js/screens/setup.js',
-    'js/screens/play.js', 'js/screens/results.js', 'js/screens/campaign.js'
-)
+ACTIVE_UI_SCRIPTS = ('js/ui.js', 'js/screens/menu.js', 'js/screens/setup.js', 'js/screens/play.js', 'js/screens/results.js')
+MP_SCRIPTS = ('js/hp.js', 'js/multiplayer/lan.js', 'js/multiplayer/local.js', 'js/multiplayer/alt.js')  # M18 (HP) + M13 (+ transporte)
 PENDING_UI_SCRIPTS = (
-    'js/multiplayer/local.js', 'js/multiplayer/lan.js', 'js/main.js'
+    'js/screens/campaign.js', 'js/main.js'
 )
 TEMPLATES = (
     'tpl-choice', 'tpl-player-field', 'tpl-roster-item', 'tpl-ranking-item',
@@ -36,10 +36,7 @@ TEMPLATES = (
 )
 DYNAMIC_CLASSES = (
     'bq5-is-entering', 'bq5-anim-pop', 'bq5-anim-shake', 'bq5-anim-pulse',
-    'bq5-progress-pip', 'bq5-campaign-difficulty', 'bq5-campaign-detail',
-    'bq5-campaign-summary', 'bq5-campaign-stops', 'bq5-campaign-stop',
-    'bq5-campaign-stop__title', 'bq5-campaign-stop__hint',
-    'bq5-campaign-stop__status', 'bq5-campaign-unlocked', 'bq5-campaign-warning'
+    'bq5-progress-pip'
 )
 ASSET_EXTENSIONS = {
     '.svg', '.png', '.webp', '.avif', '.jpg', '.jpeg', '.gif',
@@ -50,7 +47,7 @@ VOID_TAGS = {
     'link', 'meta', 'param', 'source', 'track', 'wbr'
 }
 ID_RE = re.compile(
-    r'^(?:bq5|screen|boot|menu|setup|play|handoff|results|campaign|lan|tpl)-[a-z0-9-]+$|^modal-title$'
+    r'^(?:bq5|screen|boot|menu|setup|play|handoff|results|campaign|lan|mp|alt|tpl)-[a-z0-9-]+$|^modal-title$'
 )
 
 passed = 0
@@ -366,8 +363,7 @@ def main():
     check('IDs internos de template limitados a modal-title', template_ids <= {'modal-title'}, sorted(template_ids - {'modal-title'}))
     check('modal-title existe uma vez dentro do tpl-modal', sum(1 for item in all_id_items if item.attrs['id'] == 'modal-title' and item.in_template and item.template_id == 'tpl-modal') == 1)
     documented_ids = contract_id_set(contract)
-    dynamic_campaign_ids = {'campaign-difficulty-wrap', 'campaign-difficulty', 'campaign-difficulty-status', 'campaign-detail'}
-    check('IDs documentados presentes no HTML ou criados pelo M12', documented_ids <= (static_ids | template_ids | dynamic_campaign_ids), sorted(documented_ids - (static_ids | template_ids | dynamic_campaign_ids)))
+    check('IDs documentados presentes no HTML', documented_ids <= (static_ids | template_ids), sorted(documented_ids - (static_ids | template_ids)))
     check('todos os IDs estáticos do HTML constam no contrato', static_ids <= documented_ids, sorted(static_ids - documented_ids))
 
     # ---- screens ----
@@ -429,7 +425,7 @@ def main():
         style = item.attrs['style'].strip()
         html_styles.append((item.tag, item.attrs.get('id'), style))
         valid = re.fullmatch(r'--p\s*:\s*(?:0(?:\.\d+)?|1(?:\.0+)?)\s*;?', style) is not None
-        if not valid or item.attrs.get('id') not in ('play-timer', 'play-progress', 'campaign-progress', 'menu-progress-bar'):
+        if not valid or item.attrs.get('id') not in ('play-timer', 'play-progress', 'campaign-progress', 'menu-progress-bar', 'mp-timer'):
             invalid_styles.append((item.tag, item.attrs.get('id'), style))
     check('HTML usa estilo inline apenas para --p nas barras autorizadas', not invalid_styles, invalid_styles)
 
@@ -437,7 +433,7 @@ def main():
     html_actions = {item.attrs['data-action'] for item in parser.tags if 'data-action' in item.attrs}
     documented_actions = contract_action_set(contract)
     registered_actions = set()
-    for module_path in ACTIVE_UI_SCRIPTS:
+    for module_path in ACTIVE_UI_SCRIPTS + MP_SCRIPTS:
         source = (paths['game'] / module_path).read_text(encoding='utf-8') if (paths['game'] / module_path).is_file() else ''
         registered_actions.update(re.findall(r"onAction\(['\"]([^'\"]+)['\"]", source))
     generated_actions = documented_actions & registered_actions
@@ -585,7 +581,8 @@ def main():
     # ---- 4 options static and screen text ----
     static_options = [item for item in parser.tags if 'bq5-option' in item.attrs.get('class', '').split() and not item.in_template]
     indexes = sorted(item.attrs.get('data-index') for item in static_options)
-    check('exatamente quatro alternativas estáticas 0..3', indexes == ['0', '1', '2', '3'], indexes)
+    # duas telas de pergunta: solo (#play-options) e duelo 1x1 (#mp-options), 4 alternativas cada
+    check('exatamente quatro alternativas estáticas 0..3 por tela de pergunta (solo, 1x1 clássico e 1x1 alternativo)', indexes == ['0', '0', '0', '1', '1', '1', '2', '2', '2', '3', '3', '3'], indexes)
     check('alternativas não usam data-action', all('data-action' not in item.attrs for item in static_options))
     check('não existe controle de pausa na tela de partida', not any(item.attrs.get('data-action', '').lower() in ('pause', 'pause-game', 'resume-game') for item in parser.tags) and 'pausar partida' not in html.lower())
     check('texto de menu enumera somente os cinco eixos', 'Cultura, economia, animais, vegetação e cidades' in html and 'sexto eixo' not in html.lower())
@@ -594,16 +591,6 @@ def main():
     # ---- scripts ----
     scripts = [item for item in parser.tags if item.tag == 'script' and item.attrs.get('src')]
     active_sources = [item.attrs['src'] for item in scripts]
-    # ---- campaign M12 ----
-    check('M12 ativa no HTML após resultados', 'js/screens/campaign.js' in active_sources and active_sources.index('js/screens/campaign.js') > active_sources.index('js/screens/results.js'))
-    check('template de região usa campaign-open-region', 'campaign-open-region' in html and 'campaign-stage' not in html)
-    check('botão de reset da campanha está presente', any(item.attrs.get('id') == 'campaign-reset' and item.attrs.get('data-action') == 'campaign-reset' for item in parser.tags))
-    campaign_js = paths['js'] / 'screens' / 'campaign.js'
-    campaign_source = campaign_js.read_text(encoding='utf-8') if campaign_js.is_file() else ''
-    check('M12 assina intent:campaign e eventos de resultados', all(token in campaign_source for token in ("on('intent:campaign'", "on('game:finished'", "on('results:campaign'", "on('results:replay'")))
-    check('M12 define 10 perguntas e cortes dos cinco níveis', 'QUESTIONS_PER_STOP = 10' in campaign_source and all(token in campaign_source for token in ('edu: 50', 'normal: 60', 'medio: 60', 'dificil: 70', 'geografo: 70')))
-    campaign_executable = re.sub(r'/\*.*?\*/|//[^\n]*', '', campaign_source, flags=re.S)
-    check('M12 não implementa variáveis/regras de chefe ou HP', not re.search(r'\b(?:boss|bossHp|hp|health|challengePoint)\b', campaign_executable, re.I))
     active_base = [src for src in active_sources if not src.startswith('../dev/')]
     check('ordem dos cinco scripts-base preservada', tuple(active_base[:5]) == BASE_SCRIPTS, active_base)
     check('nenhum script-base usa async/defer', all(not any(flag in item.attrs for flag in ('async', 'defer')) for item in scripts if item.attrs.get('src') in BASE_SCRIPTS))
@@ -612,11 +599,15 @@ def main():
         check('script-base existe: ' + src, (paths['game'] / src).is_file())
     joined_comments = '\n'.join(parser.comments)
     active_ui = [src for src in active_sources if src in ACTIVE_UI_SCRIPTS]
-    check('Módulos 7 a 12 ativos na ordem correta', tuple(active_ui) == ACTIVE_UI_SCRIPTS, active_ui)
+    check('Módulos 7 a 11 ativos na ordem correta', tuple(active_ui) == ACTIVE_UI_SCRIPTS, active_ui)
     for src in ACTIVE_UI_SCRIPTS:
         check('script de interface ativo existe: ' + src, (paths['game'] / src).is_file())
+    mp_active = [src for src in active_sources if src in MP_SCRIPTS]
+    check('Módulos 18 e 13 ativos na ordem correta (HP, transporte, lógica, modo alternativo)', tuple(mp_active) == MP_SCRIPTS, mp_active)
+    for src in MP_SCRIPTS:
+        check('script do multiplayer existe: ' + src, (paths['game'] / src).is_file())
     pending_missing = [src for src in PENDING_UI_SCRIPTS if src not in joined_comments]
-    check('scripts pendentes dos módulos 13–15 listados em comentário', not pending_missing, pending_missing)
+    check('scripts pendentes dos módulos 12–15 listados em comentário', not pending_missing, pending_missing)
     for item in scripts:
         src = item.attrs['src']
         if src.startswith('../dev/'):

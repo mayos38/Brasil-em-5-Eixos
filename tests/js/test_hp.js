@@ -1,0 +1,34 @@
+'use strict';
+/* Testes do Módulo 18 (hp.js). Uso: node tests/js/test_hp.js */
+const fs = require('fs'), path = require('path'), vm = require('vm');
+const ctx = { console }; ctx.globalThis = ctx; vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../../brasil-quiz/js/hp.js'), 'utf8'), ctx);
+const hp = ctx.BQ5.hp;
+let ok = 0, bad = 0;
+const t = (n, c, x) => { if (c) { ok++; console.log('PASS ' + n); } else { bad++; console.log('FAIL ' + n + (x !== undefined ? ' -> ' + JSON.stringify(x) : '')); } };
+
+t('dano por dificuldade 50/100/150/200', [1, 2, 3, 4].map(hp.damageFor).join() === '50,100,150,200', [1, 2, 3, 4].map(hp.damageFor));
+t('dificuldade desconhecida usa 1x', hp.damageFor(99) === 100);
+const h = hp.create({ ids: ['host', 'guest'] });
+t('começa com 1000', h.get('host') === 1000 && h.get('guest') === 1000 && h.max === 1000);
+let r = h.damage('guest', 150);
+t('dano reduz e informa antes/depois', r.ok && r.before === 1000 && r.after === 850 && r.dealt === 150, r);
+t('nunca abaixo de zero', h.damage('guest', 5000).after === 0 && h.isDead('guest') && h.get('guest') === 0);
+t('dano inválido é recusado', !h.damage('guest', -5).ok && !h.damage('x', 5).ok && !h.damage('host', NaN).ok);
+t('cura limitada ao máximo', h.heal('host', 50).after === 1000 && h.heal('guest', 300).after === 300);
+h.reset();
+t('um a zero: o outro vence', (h.damage('guest', 1000), h.resolve(false) === 'host'));
+h.reset(); h.damage('host', 1000); h.damage('guest', 1000);
+t('ambos a zero: empate', h.resolve(false) === 'draw');
+h.reset();
+t('sem ninguém a zero e rodadas em curso: sem desfecho', h.resolve(false) === null);
+h.damage('host', 200); h.damage('guest', 100);
+t('fim das rodadas: maior HP vence', h.resolve(true) === 'guest');
+h.damage('guest', 100);
+t('fim das rodadas com HP igual: empate', h.resolve(true) === 'draw');
+const snap = h.snapshot(); const h2 = hp.create({ ids: ['host', 'guest'] }); h2.restore(snap);
+t('snapshot/restore', h2.get('host') === 800 && h2.get('guest') === 800, snap);
+t('nível da barra', hp.level(1) === 'ok' && hp.level(0.4) === 'warn' && hp.level(0.1) === 'danger');
+ctx.BQ5.config = { hp: { max: 500, baseDamage: 10, multipliers: { 4: 3 } } };
+t('config.hp sobrescreve', hp.damageFor(4) === 30 && hp.damageFor(2) === 10 && hp.create({}).max === 500);
+console.log('\n' + ok + ' OK; ' + bad + ' falhas'); process.exit(bad ? 1 : 0);

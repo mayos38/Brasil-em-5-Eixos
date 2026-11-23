@@ -164,8 +164,8 @@
     unsubscribers.push(ui().onAction('go-local', function () {
       requestIntent('local', 'O modo em grupo', 13);
     }));
-    unsubscribers.push(ui().onAction('go-lan', function () {
-      requestIntent('lan', 'A sala com amigos', 14);
+    unsubscribers.push(ui().onAction('go-multiplayer', function () {
+      requestIntent('multiplayer', 'O multiplayer 1x1', 13);
     }));
     unsubscribers.push(ui().onAction('open-profile', openProfile));
     unsubscribers.push(ui().onAction('open-options', openOptions));
