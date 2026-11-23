@@ -28,18 +28,18 @@ Entre os recursos já implementados estão:
 * Banco de questões externo em JSON, organizado por eixo e dificuldade.
 * Quatro níveis de dificuldade, incluindo **Geógrafo**.
 * Tempo de resposta varia conforme a dificuldade.
-* Pontuação base e bônus limitado por rapidez.
+* Pontuação base e bônus limitado por rapidez - Modo Solo.
 * Embaralhamento das alternativas sem perder a correspondência com o gabarito.
 * Controle para evitar repetição de questões dentro da partida.
 * Feedback após a resposta e tratamento de tempo esgotado.
 * Tela de resultados com pontuação, aproveitamento e desempenho por eixo.
 * Revisão das questões, incluindo resposta escolhida, gabarito e explicação quando disponível.
 * Histórico local das partidas, com limite de 60 registros, além de recursos de recorde e progresso previstos pelas APIs existentes.
-
+* Modos de jogo multiplayer 1x1 (PVP): modo tradicional, semelhante ao solo e modo alternativo, com mecânicas de RPG de turnos.
 
 ## Os cinco eixos e o banco de questões
 
-O banco oficial está em `brasil-quiz/data/questions.json` e, no registro de desenvolvimento de 18 de novembro de 2026, contém **508 questões** distribuídas entre os cinco eixos e quatro níveis de dificuldade.
+O banco oficial está em `brasil-quiz/data/questions.json` e em 18 de novembro de 2026, contém **508 questões** distribuídas entre os cinco eixos e quatro níveis de dificuldade.
 
 O número de questões é consultado dinamicamente pelo próprio sistema. Portanto, 508 é a quantidade registrada nessa versão do banco, não um valor fixo usado pelas regras do jogo. O arquivo JSON é a fonte única dos enunciados e não deve ser duplicado em outros módulos.
 
@@ -74,8 +74,14 @@ O projeto não depende de um framework JavaScript ou de um processo de build par
 |M9 — Configuração|Preparação da partida solo.|
 |M10 — Partida|Apresentação das perguntas, seleção, confirmação, cronômetro e feedback.|
 |M11 — Resultados|Desempenho, revisão das respostas, histórico e replay solo.|
-
-A arquitetura prevê ainda módulos próprios para campanha, multiplayer e inicialização final da aplicação. Eles estão identificados como etapas futuras no estado atual do projeto, em fase de amadurecimento de idéias, especialmente a campanha e o modo multiplayer.
+|M12 — Campanha|Mapa do Brasil, pontos de parada temáticos e ponto de batalhas de chefe|
+|M13 — Multiplayer|Modos de jogo pvp 1x1, modo tradicional e alternativo|
+|M14 — LAN|Parte funcional da conexão via Wi-fi/LAN|
+|M15 — Integração|Realiza a integração entre os módulos diferentes e torna o primeiro release viável|
+|M16 — Arte|Assets, interface|
+|M17 — Blitz|Modo de jogo continuo de Pontos de Desafio/Batalhas contra chefes|
+|M18 — HP|módulo base para os 3 modos de jogo principais|
+|M19 — Perfil|Personalização, histórico de partidas, estatísticas|
 
 ## Executar a prévia integrada
 
@@ -114,15 +120,13 @@ Os resultados e as pendências de cada etapa são acompanhados separadamente na 
 ## Estado do desenvolvimento
 
 **Implementado:** banco de questões, configuração, utilitários, armazenamento, validação do banco, motor de jogo, interface-base, menu, configuração de partida solo, fluxo de perguntas e tela de resultados/revisão.
-
+**Implementado, parcialmente:** Multiplayer local, via Wi-fi/LAN: partidas entre jogadores, incluindo dois modos de jogo 1×1;
 **Em desenvolvimento / etapas futuras:**
 
 * **Campanha:** percurso pelas cinco regiões brasileiras, com progressão própria.
-* **Multiplayer local, via Wi-fi/LAN:** partidas entre jogadores, incluindo o modo 1×1; a expectativa atual é de que seja possível por meio da mesma rede de Wi-fi/Lan. Também terá jogabilidade diferente tanto do modo solo, quanto do modo campanha.
 * **Integração final:** inicialização e conexão definitiva de todos os módulos, substituindo as ferramentas intermediárias de prévia, que estão disponíveis para testes da fase atual.
-* **Personagens para personalização e individualização dos jogadores, com mascotes desbloqueáveis através de marcos (como conquistas da Campanha)
+* **Personagens** para personalização e individualização dos jogadores, com mascotes desbloqueáveis através de conquistas e marcos de gameplay; bem como perfil do jogador com histórico de partidas e sua personalização.
 A interface e a arquitetura seguem uma direção **mobile-first**: a experiência deve funcionar bem em telas pequenas e também se adaptar a telas maiores. 
-O projeto ainda não deve ser considerado uma versão final. A implementação dos módulos e a validação integrada em navegador e dispositivos continuam fazendo parte do desenvolvimento.
 
 ## Documentação
 
