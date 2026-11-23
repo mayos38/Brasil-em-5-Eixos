@@ -1,7 +1,9 @@
 /* ============================================================
  * Brasil em 5 Eixos — gerador local de QR Code para o M14.
- * Codificação QR Model 2, byte mode, correção M. Sem CDN, câmera,
- * serviço remoto ou envio do conteúdo para terceiros.
+ * Codificação QR Model 2, byte mode, correção L (padrão) ou M. Sem CDN,
+ * câmera, serviço remoto ou envio do conteúdo para terceiros.
+ * L gera QR com menos módulos (mais fácil de ler na tela de um celular);
+ * a exibição em tela não sofre desgaste físico, então M raramente compensa.
  * O conteúdo atual é ASCII (BQ5-O/BQ5-A), conforme lan.js.
  * ============================================================ */
 (function (global) {
@@ -38,8 +40,8 @@
     }
     return work.slice(data.length);
   }
-  function blocksFor(version) {
-    var spec = RS_BLOCK_TABLE[(version - 1) * 4 + 1]; // correção M
+  function blocksFor(version, level) {
+    var spec = RS_BLOCK_TABLE[(version - 1) * 4 + (level === 'M' ? 1 : 0)]; // tabela: L, M, Q, H
     var blocks = [];
     for (var i = 0; i < spec.length; i += 3) {
       for (var n = 0; n < spec[i]; n++) blocks.push({ total: spec[i + 1], data: spec[i + 2] });
@@ -119,8 +121,8 @@
       if (m[6][t] === null) m[6][t] = t % 2 === 0;
     }
   }
-  function setupType(m, version, mask, test) {
-    var n = m.length, bits = bchTypeInfo(mask); // M = 00
+  function setupType(m, version, mask, test, level) {
+    var n = m.length, bits = bchTypeInfo(((level === 'M' ? 0 : 1) << 3) | mask); // M = 00, L = 01
     for (var i = 0; i < 15; i++) {
       var mod = !test && ((bits >>> i) & 1) === 1;
       if (i < 6) m[i][8] = mod;
@@ -179,17 +181,17 @@
   function penalty(m) {
     var n = m.length, score = 0;
     function lineScore(line) {
-      var run = 1;
-      for (var i = 1; i < line.length; i++) {
-        if (line[i] === line[i - 1]) run++;
-        else { if (run >= 5) score += run - 2; run = 1; }
+      var run = 1, win = 0;
+      for (var i = 0; i < line.length; i++) {
+        if (i > 0) {
+          if (line[i] === line[i - 1]) run++;
+          else { if (run >= 5) score += run - 2; run = 1; }
+        }
+        // janela deslizante de 11 bits (sem criar strings): 10111010000 = 0x5D0, 00001011101 = 0x05D
+        win = ((win << 1) | (line[i] ? 1 : 0)) & 0x7FF;
+        if (i >= 10 && (win === 0x5D0 || win === 0x05D)) score += 40;
       }
       if (run >= 5) score += run - 2;
-      for (var k = 0; k <= line.length - 11; k++) {
-        var s = '';
-        for (var j = 0; j < 11; j++) s += line[k + j] ? '1' : '0';
-        if (s === '10111010000' || s === '00001011101') score += 40;
-      }
     }
     for (var r = 0; r < n; r++) {
       lineScore(m[r]);
@@ -204,30 +206,74 @@
     score += Math.floor(Math.abs((dark * 100 / (n * n)) - 50) / 5) * 10;
     return score;
   }
-  function buildMatrix(data, version, mask, test) {
+  function buildMatrix(data, version, mask, test, level) {
     var m = blankMatrix(version * 4 + 17);
     setupPatterns(m, version);
-    setupType(m, version, mask, test);
+    setupType(m, version, mask, test, level);
     mapData(m, data, mask);
     return m;
   }
-  function encode(text) {
+  function encode(text, options) {
+    var level = options && options.level === 'M' ? 'M' : 'L';
     text = String(text == null ? '' : text);
     if (!text) throw new Error('Não há código para gerar o QR Code.');
     for (var i = 0; i < text.length; i++) if (text.charCodeAt(i) > 127) throw new Error('O código contém caracteres incompatíveis com o QR Code.');
     var version = 0, blocks = null;
     for (var v = 1; v <= 40; v++) {
-      var candidate = blocksFor(v), capacity = candidate.reduce(function (sum, b) { return sum + b.data; }, 0) * 8;
+      var candidate = blocksFor(v, level), capacity = candidate.reduce(function (sum, b) { return sum + b.data; }, 0) * 8;
       var required = 4 + (v < 10 ? 8 : 16) + text.length * 8;
       if (required <= capacity) { version = v; blocks = candidate; break; }
     }
     if (!version) throw new Error('Este código é grande demais para ser exibido em QR. Use “Copiar código”.');
     var data = makeDataBytes(text, version, blocks), bestMask = 0, bestScore = Infinity;
     for (var mask = 0; mask < 8; mask++) {
-      var testMatrix = buildMatrix(data, version, mask, true), score = penalty(testMatrix);
+      var testMatrix = buildMatrix(data, version, mask, true, level), score = penalty(testMatrix);
       if (score < bestScore) { bestScore = score; bestMask = mask; }
     }
-    return { matrix: buildMatrix(data, version, bestMask, false), version: version, correction: 'M' };
+    return { matrix: buildMatrix(data, version, bestMask, false, level), version: version, correction: level };
   }
-  BQ5.qr = { encode: encode };
+  // Desenha o QR como imagem PNG (canvas -> <img>) com escala INTEIRA em pixels
+  // do aparelho: bordas nítidas, sem moiré e sem o custo de um SVG com
+  // milhares de segmentos. O canvas é descartado logo após gerar o PNG.
+  // Retorna a <img> inserida, ou null se o canvas não estiver disponível
+  // (o chamador, então, usa o SVG de reserva).
+  function draw(target, matrix, options) {
+    var doc = target && target.ownerDocument;
+    if (!doc || !doc.createElement) return null;
+    var canvas = doc.createElement('canvas');
+    if (!canvas.getContext) return null;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    var size = matrix.length, margin = 4, total = size + margin * 2;
+    var dpr = Math.max(1, Math.min(4, (options && options.dpr) || global.devicePixelRatio || 1));
+    var cssWidth = (options && options.cssWidth) || target.clientWidth || Math.min(300, (global.innerWidth || 360) - 48);
+    var scale = Math.max(1, Math.floor(cssWidth * dpr / total));
+    var px = total * scale;
+    canvas.width = px; canvas.height = px;
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, px, px);
+    ctx.fillStyle = '#000000';
+    for (var r = 0; r < size; r++) {
+      var c = 0, row = matrix[r];
+      while (c < size) { // agrupa módulos escuros vizinhos: menos chamadas ao canvas
+        if (!row[c]) { c++; continue; }
+        var start = c;
+        while (c < size && row[c]) c++;
+        ctx.fillRect((start + margin) * scale, (r + margin) * scale, (c - start) * scale, scale);
+      }
+    }
+    var url = canvas.toDataURL('image/png');
+    canvas.width = 0; canvas.height = 0; // libera o bitmap
+    var img = doc.createElement('img');
+    img.alt = (options && options.alt) || 'QR Code';
+    img.decoding = 'sync';
+    img.draggable = false;
+    img.style.width = (px / dpr) + 'px';
+    img.style.height = (px / dpr) + 'px';
+    img.src = url;
+    while (target.firstChild) target.removeChild(target.firstChild);
+    target.appendChild(img);
+    return img;
+  }
+
+  BQ5.qr = { encode: encode, draw: draw };
 })(globalThis);

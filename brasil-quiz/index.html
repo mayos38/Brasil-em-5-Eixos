@@ -413,9 +413,10 @@
               <textarea id="mp-host-answer" class="bq5-textarea" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
               <div class="bq5-mpcode-actions">
                 <button id="mp-host-scan" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-qr-scan" data-value="host" hidden>Ler QR Code</button>
+                <button id="mp-host-photo" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-qr-photo" data-value="host">Ler por foto</button>
                 <button id="mp-host-connect" class="bq5-btn bq5-btn--primary bq5-btn--sm" type="button" data-action="mp-host-connect" disabled>Conectar</button>
               </div>
-              <p id="mp-host-scan-note" class="bq5-hint" hidden>Sem leitor integrado neste navegador. Peça ao outro jogador para tocar em “Copiar código” e enviar o texto; depois cole aqui.</p>
+              <p id="mp-host-scan-note" class="bq5-hint" hidden>A câmera ao vivo não está disponível neste endereço/navegador. Toque em “Ler por foto” para fotografar o QR, ou peça o texto em “Copiar código” e cole aqui.</p>
             </div>
           </div>
 
@@ -430,9 +431,10 @@
               <textarea id="mp-join-offer" class="bq5-textarea" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
               <div class="bq5-mpcode-actions">
                 <button id="mp-join-scan" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-qr-scan" data-value="join" hidden>Ler QR Code</button>
+                <button id="mp-join-photo" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-qr-photo" data-value="join">Ler por foto</button>
                 <button id="mp-join-go" class="bq5-btn bq5-btn--primary bq5-btn--sm" type="button" data-action="mp-join-go">Entrar</button>
               </div>
-              <p id="mp-join-scan-note" class="bq5-hint" hidden>Sem leitor integrado neste navegador. Peça ao outro jogador para tocar em “Copiar código” e enviar o texto; depois cole aqui.</p>
+              <p id="mp-join-scan-note" class="bq5-hint" hidden>A câmera ao vivo não está disponível neste endereço/navegador. Toque em “Ler por foto” para fotografar o QR, ou peça o texto em “Copiar código” e cole aqui.</p>
             </div>
             <div class="bq5-field">
               <label class="bq5-label" for="mp-join-code">Seu código de resposta</label>
@@ -451,6 +453,7 @@
 
           <p id="mp-status" class="bq5-hint bq5-mpstatus" role="status" data-kind="info"></p>
         </div>
+        <input id="mp-qr-file" type="file" accept="image/*" hidden tabindex="-1" aria-hidden="true">
         <div id="mp-qr-scanner" class="bq5-modal" role="dialog" aria-modal="true" aria-labelledby="mp-qr-scanner-title" hidden>
           <div class="bq5-modal__panel">
             <h2 id="mp-qr-scanner-title" class="bq5-modal__title">Ler QR Code</h2>
@@ -785,6 +788,7 @@
   <script src="js/hp.js"></script>                       <!-- módulo 18: sistema de HP -->
   <script src="js/multiplayer/lan.js"></script>          <!-- transporte WebRTC usado pelo módulo 13 -->
   <script src="js/multiplayer/qr.js"></script>           <!-- geração local de QR Code suplementar -->
+  <script src="js/multiplayer/qr-reader.js"></script>    <!-- leitura local de QR (câmera/foto); jsQR carregado sob demanda de js/vendor/ -->
   <script src="js/multiplayer/local.js"></script>        <!-- módulo 13: multiplayer 1x1 (modo clássico) -->
   <script src="js/multiplayer/alt.js"></script>          <!-- módulo 13: modo alternativo (usa hp.js) -->
   <!-- PENDENTES: adicionar cada módulo ao concluir sua implementação
