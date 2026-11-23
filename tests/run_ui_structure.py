@@ -17,15 +17,17 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 SCREENS = (
-    'boot', 'menu', 'setup', 'play', 'handoff', 'results', 'campaign', 'lan'
+    'boot', 'menu', 'setup', 'play', 'handoff', 'results', 'campaign', 'lan',
+    'mp-mode', 'mp-setup', 'mp-theme', 'mp-wait', 'mp-play',
+    'mp-alt-pick', 'mp-alt-play', 'mp-alt-end', 'mp-alt-msg'
 )
 BASE_SCRIPTS = (
     'js/config.js', 'js/util.js', 'js/storage.js', 'js/bank.js', 'js/engine.js'
 )
 ACTIVE_UI_SCRIPTS = ('js/ui.js', 'js/screens/menu.js', 'js/screens/setup.js', 'js/screens/play.js', 'js/screens/results.js')
+MP_SCRIPTS = ('js/hp.js', 'js/multiplayer/lan.js', 'js/multiplayer/local.js', 'js/multiplayer/alt.js')  # M18 (HP) + M13 (+ transporte)
 PENDING_UI_SCRIPTS = (
-    'js/screens/campaign.js', 'js/multiplayer/local.js', 'js/multiplayer/lan.js',
-    'js/main.js'
+    'js/screens/campaign.js', 'js/main.js'
 )
 TEMPLATES = (
     'tpl-choice', 'tpl-player-field', 'tpl-roster-item', 'tpl-ranking-item',
@@ -45,7 +47,7 @@ VOID_TAGS = {
     'link', 'meta', 'param', 'source', 'track', 'wbr'
 }
 ID_RE = re.compile(
-    r'^(?:bq5|screen|boot|menu|setup|play|handoff|results|campaign|lan|tpl)-[a-z0-9-]+$|^modal-title$'
+    r'^(?:bq5|screen|boot|menu|setup|play|handoff|results|campaign|lan|mp|alt|tpl)-[a-z0-9-]+$|^modal-title$'
 )
 
 passed = 0
@@ -423,7 +425,7 @@ def main():
         style = item.attrs['style'].strip()
         html_styles.append((item.tag, item.attrs.get('id'), style))
         valid = re.fullmatch(r'--p\s*:\s*(?:0(?:\.\d+)?|1(?:\.0+)?)\s*;?', style) is not None
-        if not valid or item.attrs.get('id') not in ('play-timer', 'play-progress', 'campaign-progress', 'menu-progress-bar'):
+        if not valid or item.attrs.get('id') not in ('play-timer', 'play-progress', 'campaign-progress', 'menu-progress-bar', 'mp-timer'):
             invalid_styles.append((item.tag, item.attrs.get('id'), style))
     check('HTML usa estilo inline apenas para --p nas barras autorizadas', not invalid_styles, invalid_styles)
 
@@ -431,7 +433,7 @@ def main():
     html_actions = {item.attrs['data-action'] for item in parser.tags if 'data-action' in item.attrs}
     documented_actions = contract_action_set(contract)
     registered_actions = set()
-    for module_path in ACTIVE_UI_SCRIPTS:
+    for module_path in ACTIVE_UI_SCRIPTS + MP_SCRIPTS:
         source = (paths['game'] / module_path).read_text(encoding='utf-8') if (paths['game'] / module_path).is_file() else ''
         registered_actions.update(re.findall(r"onAction\(['\"]([^'\"]+)['\"]", source))
     generated_actions = documented_actions & registered_actions
@@ -579,7 +581,8 @@ def main():
     # ---- 4 options static and screen text ----
     static_options = [item for item in parser.tags if 'bq5-option' in item.attrs.get('class', '').split() and not item.in_template]
     indexes = sorted(item.attrs.get('data-index') for item in static_options)
-    check('exatamente quatro alternativas estáticas 0..3', indexes == ['0', '1', '2', '3'], indexes)
+    # duas telas de pergunta: solo (#play-options) e duelo 1x1 (#mp-options), 4 alternativas cada
+    check('exatamente quatro alternativas estáticas 0..3 por tela de pergunta (solo, 1x1 clássico e 1x1 alternativo)', indexes == ['0', '0', '0', '1', '1', '1', '2', '2', '2', '3', '3', '3'], indexes)
     check('alternativas não usam data-action', all('data-action' not in item.attrs for item in static_options))
     check('não existe controle de pausa na tela de partida', not any(item.attrs.get('data-action', '').lower() in ('pause', 'pause-game', 'resume-game') for item in parser.tags) and 'pausar partida' not in html.lower())
     check('texto de menu enumera somente os cinco eixos', 'Cultura, economia, animais, vegetação e cidades' in html and 'sexto eixo' not in html.lower())
@@ -599,6 +602,10 @@ def main():
     check('Módulos 7 a 11 ativos na ordem correta', tuple(active_ui) == ACTIVE_UI_SCRIPTS, active_ui)
     for src in ACTIVE_UI_SCRIPTS:
         check('script de interface ativo existe: ' + src, (paths['game'] / src).is_file())
+    mp_active = [src for src in active_sources if src in MP_SCRIPTS]
+    check('Módulos 18 e 13 ativos na ordem correta (HP, transporte, lógica, modo alternativo)', tuple(mp_active) == MP_SCRIPTS, mp_active)
+    for src in MP_SCRIPTS:
+        check('script do multiplayer existe: ' + src, (paths['game'] / src).is_file())
     pending_missing = [src for src in PENDING_UI_SCRIPTS if src not in joined_comments]
     check('scripts pendentes dos módulos 12–15 listados em comentário', not pending_missing, pending_missing)
     for item in scripts:

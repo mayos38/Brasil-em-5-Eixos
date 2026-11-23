@@ -33,7 +33,16 @@ Cada tela é uma `<section class="bq5-screen" data-screen="...">`. Apenas uma te
 | `handoff` | `screen-handoff` | 13 | Troca de aparelho entre jogadores no grupo local. |
 | `results` | `screen-results` | 11 | Pontuação, ranking quando aplicável e revisão educativa. |
 | `campaign` | `screen-campaign` | 12 | Progresso e rota pelas cinco regiões. |
-| `lan` | `screen-lan` | 14 | Esqueleto inicial da sala com amigos; pode ser detalhado dentro da tela. |
+| `lan` | `screen-lan` | 21 | Esqueleto legado da "sala com amigos". Não é mais aberto pelo menu (substituído pelo Multiplayer 1x1). Pela decisão de 2026-11-22, o M14 foi fechado como transporte WebRTC; a tela permanece no HTML inerte até a implementação do Módulo 21 (sala multi-jogador). |
+| `mp-mode` | `screen-mp-mode` | 13 | Multiplayer 1x1: escolha do modo (clássico habilitado; alternativo "em breve"). |
+| `mp-setup` | `screen-mp-setup` | 13 | Criação da partida: apelido, criar/entrar em sala e troca dos códigos de conexão. |
+| `mp-theme` | `screen-mp-theme` | 13 | Anfitrião escolhe o tema (Aleatório ou um dos cinco eixos) e inicia. |
+| `mp-wait` | `screen-mp-wait` | 13 | Convidado: "Aguardando criação de partida". |
+| `mp-play` | `screen-mp-play` | 13 | Duelo: rodadas simultâneas, placar de acertos no canto superior direito. |
+| `mp-alt-pick` | `screen-mp-alt-pick` | 13 | Modo alternativo: escolher a carta para o oponente (início) ou descartar uma do oponente (entre rodadas); 15 s. |
+| `mp-alt-play` | `screen-mp-alt-play` | 13 | Modo alternativo: HP, três cartas lado a lado, pergunta da carta escolhida e eventos da rodada. |
+| `mp-alt-end` | `screen-mp-alt-end` | 13 | Modo alternativo: resumo, Revanche (amarelo), Jogar novamente, Menu principal (vermelho). |
+| `mp-alt-msg` | `screen-mp-alt-msg` | 13 | "Simbora de novo!" (transição de 5 s) ou "Ihhh, ele(a) fugiu!". |
 
 ### Regras de navegação
 
@@ -65,7 +74,24 @@ Os eventos são delegados por `ui.js` a partir de um ancestral estável. Não cr
 | `go-solo` | Abrir configuração solo. |
 | `go-campaign` | Abrir a campanha. |
 | `go-local` | Abrir configuração para grupo no mesmo aparelho. |
-| `go-lan` | Abrir a sala com amigos. |
+| `go-multiplayer` | Abrir o Multiplayer 1x1 (publica `intent:multiplayer`; substitui `go-lan`). |
+| `mp-pick-mode` | Escolher o modo do duelo pelo `data-value` (`classic` | `alternative`; este último desabilitado). |
+| `mp-role` | Escolher `host` (criar sala) ou `join` (entrar em sala) na criação da partida. |
+| `mp-copy` | Copiar o código do anfitrião (`host`) ou o código de resposta (`join`). |
+| `mp-host-connect` | Anfitrião aplica o código de resposta do convidado e conecta. |
+| `mp-join-go` | Convidado cola o código da sala e gera seu código de resposta. |
+| `mp-select-theme` | Anfitrião escolhe `all` ou um eixo (rádio dinâmico em `#mp-themes`). |
+| `mp-start` | Anfitrião inicia a partida. |
+| `mp-confirm` | Confirma a alternativa selecionada no duelo (não pode ser trocada depois). |
+| `mp-quit` | Sair do duelo (abandono: o oponente vence). |
+| `mp-leave` | Sair da sala antes da partida (temas/espera). |
+| `mp-alt-confirm` | Confirma a alternativa da carta escolhida (modo alternativo). |
+| `mp-alt-quit` | Sair do duelo alternativo (abandono). |
+| `mp-alt-rematch` | Pedir revanche (botão amarelo). |
+| `mp-alt-accept` | Aceitar o pedido de revanche do oponente. |
+| `mp-alt-decline` | Recusar o pedido de revanche do oponente. |
+| `mp-alt-again` | Jogar novamente: volta à criação de nova partida (nova sala). |
+| `mp-alt-menu` | Menu principal (botão vermelho). |
 | `setup-select-mode` | Selecionar modalidade pelo `data-value`; somente `solo` está disponível no Módulo 9. |
 | `setup-select-theme` | Selecionar um dos cinco eixos ou `all` (todos). |
 | `setup-select-diff` | Selecionar uma chave existente em `config.tiers`. |
@@ -165,6 +191,24 @@ O histórico usa `storage.getJSON()`/`storage.setJSON()` com a chave `config.sto
 ### Sala com amigos (LAN)
 
 `screen-lan`, `lan-title`, `lan-lead`, `lan-role`, `lan-panel-host`, `lan-host-code`, `lan-host-copy`, `lan-host-answer`, `lan-host-accept`, `lan-panel-join`, `lan-join-offer`, `lan-join-connect`, `lan-join-code`, `lan-join-copy`, `lan-players-title`, `lan-players`, `lan-status`, `lan-start`.
+
+### Multiplayer 1x1 (Módulo 13)
+
+`screen-mp-mode`, `mp-mode-title`, `mp-mode-classic`, `mp-classic-text`, `mp-mode-alt`, `mp-alt-text`.
+`screen-mp-setup`, `mp-setup-title`, `mp-setup-lead`, `mp-nick`, `mp-role-title`, `mp-role`, `mp-role-hint`, `mp-panel-host`, `mp-host-code`, `mp-host-copy`, `mp-host-answer`, `mp-host-connect`, `mp-panel-join`, `mp-join-offer`, `mp-join-go`, `mp-join-code`, `mp-join-copy`, `mp-status`.
+`screen-mp-theme`, `mp-theme-title`, `mp-theme-lead`, `mp-themes-title`, `mp-themes`, `mp-theme-hint`, `mp-leave-theme`, `mp-start`.
+`screen-mp-wait`, `mp-wait-title`, `mp-wait-text`, `mp-leave-wait`.
+`screen-mp-play`, `mp-play-title`, `mp-quit`, `mp-round`, `mp-total`, `mp-target`, `mp-score`, `mp-score-me`, `mp-score-opp`, `mp-name-me`, `mp-name-opp`, `mp-progress`, `mp-opp-status`, `mp-timer`, `mp-time-left`, `mp-tag-theme`, `mp-tag-region`, `mp-tag-diff`, `mp-question`, `mp-options`, `mp-feedback`, `mp-feedback-title`, `mp-feedback-points`, `mp-feedback-text`, `mp-live`, `mp-confirm`.
+
+Resultado 1x1 enviado ao Módulo 11: `{mode:'1x1', variant:'classic', variantLabel, outcome:'win'|'loss'|'draw', playerId:'me', players:[{id,name,score,right,rank,scoreText}], review, ...}`. `scoreText` (opcional) substitui "N pontos" na classificação; o histórico guarda `variant` e `right` por jogador.
+
+Modo alternativo (HP + cartas):
+`screen-mp-alt-pick`, `alt-pick-title`, `alt-pick-lead`, `alt-pick-round`, `alt-pick-timer`, `alt-pick-time`, `alt-pick-cards`, `alt-pick-status`, `alt-pick-name-me`, `alt-pick-name-opp`, `alt-pick-hp-me`, `alt-pick-hp-opp`, `alt-pick-bar-me`, `alt-pick-bar-opp`.
+`screen-mp-alt-play`, `alt-play-title`, `alt-quit`, `alt-round`, `alt-rounds`, `alt-play-name-me`, `alt-play-name-opp`, `alt-play-hp-me`, `alt-play-hp-opp`, `alt-play-bar-me`, `alt-play-bar-opp`, `alt-opp-status`, `alt-timer`, `alt-time`, `alt-hand-wrap`, `alt-hand-title`, `alt-hand`, `alt-qwrap`, `alt-card-theme`, `alt-card-diff`, `alt-question`, `alt-options`, `alt-events-wrap`, `alt-events`, `alt-live`, `alt-confirm`.
+`screen-mp-alt-end`, `alt-end-title`, `alt-end-sub`, `alt-end-hp`, `alt-end-summary`, `alt-end-ask`, `alt-end-ask-text`, `alt-end-accept`, `alt-end-decline`, `alt-end-note`, `alt-end-rematch`, `alt-end-again`, `alt-end-menu`.
+`screen-mp-alt-msg`, `alt-msg-title`, `alt-msg-sub`, `alt-msg-spinner`, `alt-msg-actions`, `alt-msg-again`, `alt-msg-menu`.
+
+Módulo 18 (`js/hp.js`): `BQ5.hp.create({ids,max})`, `damageFor(dificuldade)` (50/100/150/200; velocidade não conta), `resolve(roundsOver)`, `level(ratio)`. Parâmetros em `BQ5.config.hp`; regras do modo em `BQ5.config.multiplayer.alternative`.
 
 ### IDs em templates
 
@@ -369,9 +413,9 @@ Módulos de interface ativos:
 
 Ainda pendentes, e mantidos sem `<script src>` ativo até existirem:
 6. `js/screens/campaign.js` (módulo 12)
-7. `js/multiplayer/local.js` (módulo 13)
-8. `js/multiplayer/lan.js` (módulo 14)
-9. `js/main.js` (módulo 15)
+7. `js/main.js` (módulo 15)
+
+Ativos (nesta ordem, após `results.js`): `js/hp.js` (módulo 18), `js/multiplayer/lan.js` (transporte WebRTC por troca de códigos) `js/multiplayer/local.js` (telas e regras do duelo 1x1 clássico; assina `intent:multiplayer`) e `js/multiplayer/alt.js` (modo alternativo, registrado como variante).
 
 O Módulo 8 registra intenções (`intent:solo`, `intent:campaign`, `intent:local`, `intent:lan`) no barramento da UI. O Módulo 9 assina `intent:solo` e abre a configuração; as outras modalidades permanecem futuras/desabilitadas. `BQ5.screens.menu.show()` continua sendo chamado pelo bootstrap do Módulo 15 após o carregamento válido do banco; M7–M11 não contornam a tela de boot nem iniciam o menu automaticamente.
 
