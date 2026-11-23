@@ -36,7 +36,6 @@
   var sampleCanvas = null;
   var nativePromise = null;
   var jsqrPromise = null;
-  var loadAttempts = 0;
   var lastIssue = '';
 
   function fail(code, message) {
@@ -94,26 +93,56 @@
     return typeof fn === 'function' ? fn : null;
   }
 
+  // Plano C: baixa o arquivo com fetch e o executa como script inline. Passa por
+  // cima de bloqueadores/caches que recusam <script src> mas permitem fetch.
+  function loadViaFetch(src) {
+    if (typeof global.fetch !== 'function') return Promise.reject(fail('NO_ENGINE', 'fetch indisponível'));
+    return global.fetch(src, { cache: 'reload', credentials: 'same-origin' }).then(function (response) {
+      if (!response.ok) throw fail('NO_ENGINE', 'HTTP ' + response.status);
+      return response.text();
+    }).then(function (code) {
+      if (!code || code.length < 1000) throw fail('NO_ENGINE', 'resposta vazia ou curta demais (' + (code ? code.length : 0) + ' bytes)');
+      var doc = global.document;
+      var tag = doc.createElement('script');
+      tag.text = code;
+      doc.head.appendChild(tag);
+      if (tag.parentNode) tag.parentNode.removeChild(tag);
+      return '';
+    });
+  }
+
   // Resolve com a função jsQR, ou null se não foi possível (motivo em lastIssue).
+  // Tenta, em ordem: <script src>, <script src> com cache ignorado, fetch + inline.
   function getJsQr() {
     var ready = pickJsQr();
     if (ready) return Promise.resolve(ready);
     if (jsqrPromise) return jsqrPromise;
-    // Da segunda tentativa em diante, ignora cache do navegador (ex.: 404 guardado).
-    var src = VENDOR_SRC + (loadAttempts++ > 0 ? '?r=' + Date.now() : '');
-    jsqrPromise = loadScript(src).then(function (scriptError) {
-      var fn = pickJsQr();
-      if (fn) { lastIssue = ''; return fn; }
-      lastIssue = scriptError
-        ? 'o arquivo carregou mas deu erro: ' + scriptError + ' (navegador antigo ou arquivo errado)'
-        : 'o arquivo carregou mas não definiu jsQR (confirme que é dist/jsQR.js e não uma página de erro)';
-      jsqrPromise = null;
-      return null;
-    }, function (error) {
-      lastIssue = error && error.message ? error.message : 'falha ao carregar';
-      jsqrPromise = null; // permite tentar de novo depois
-      return null;
-    });
+    var issues = [];
+    function stage(label, loader) {
+      return function () {
+        if (pickJsQr()) return null;
+        return loader().then(function (scriptError) {
+          if (!pickJsQr()) {
+            issues.push(label + ': ' + (scriptError
+              ? 'carregou mas deu erro: ' + scriptError + ' (navegador antigo ou arquivo errado)'
+              : 'carregou mas não definiu jsQR (confirme que é dist/jsQR.js)'));
+          }
+        }, function (error) {
+          issues.push(label + ': ' + (error && error.message ? error.message : 'falha'));
+        });
+      };
+    }
+    var stamp = '?r=' + Date.now();
+    jsqrPromise = Promise.resolve()
+      .then(stage('tag', function () { return loadScript(VENDOR_SRC); }))
+      .then(stage('tag sem cache', function () { return loadScript(VENDOR_SRC + stamp); }))
+      .then(stage('fetch', function () { return loadViaFetch(VENDOR_SRC + stamp); }))
+      .then(function () {
+        var fn = pickJsQr();
+        jsqrPromise = null; // permite tentar de novo depois, se falhou
+        lastIssue = fn ? '' : issues.join(' | ');
+        return fn;
+      });
     return jsqrPromise;
   }
 
