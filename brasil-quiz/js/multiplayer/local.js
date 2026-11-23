@@ -464,7 +464,7 @@
     var background = doc.createElementNS(ns, 'rect');
     background.setAttribute('x', '0'); background.setAttribute('y', '0');
     background.setAttribute('width', String(total)); background.setAttribute('height', String(total));
-    background.setAttribute('fill', '#ffffff');
+    background.setAttribute('fill', '000000');
     svg.appendChild(background);
     var path = doc.createElementNS(ns, 'path');
     var d = '';
