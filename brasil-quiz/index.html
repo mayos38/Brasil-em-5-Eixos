@@ -391,41 +391,76 @@
 
           <div id="mp-panel-host" class="bq5-mppanel" hidden>
             <ol class="bq5-steps">
-              <li>Copie o código da sala e envie ao outro jogador.</li>
-              <li>Peça o código de resposta dele e cole no campo abaixo.</li>
+              <li>Envie o código da sala por texto ou mostre o QR Code ao outro jogador.</li>
+              <li>Leia o QR de resposta dele ou cole o texto no campo abaixo.</li>
               <li>Toque em Conectar.</li>
             </ol>
             <div class="bq5-field">
               <label class="bq5-label" for="mp-host-code">Código da sala</label>
               <textarea id="mp-host-code" class="bq5-textarea" readonly></textarea>
-              <button id="mp-host-copy" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-copy" data-value="host" disabled>Copiar código</button>
+              <div class="bq5-mpcode-actions">
+                <button id="mp-host-copy" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-copy" data-value="host" disabled>Copiar código</button>
+                <button id="mp-host-qr-toggle" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-qr-toggle" data-value="host" disabled>Exibir QR Code</button>
+              </div>
+              <div id="mp-host-qr-panel" class="bq5-mpqr-panel" hidden>
+                <h3 class="bq5-section__title">QR Code da sala</h3>
+                <div id="mp-host-qr" class="bq5-mpqr-image" role="img" aria-label="QR Code com o código da sala"></div>
+                <p class="bq5-mpqr-note">Mostre este QR ao convidado. Ele pode tocar em “Ler QR Code” no próprio jogo, quando disponível, ou usar a câmera/leitor do aparelho e colar o texto no campo da sala.</p>
+              </div>
             </div>
             <div class="bq5-field">
               <label class="bq5-label" for="mp-host-answer">Código de resposta do outro jogador</label>
               <textarea id="mp-host-answer" class="bq5-textarea" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
-              <button id="mp-host-connect" class="bq5-btn bq5-btn--primary bq5-btn--sm" type="button" data-action="mp-host-connect" disabled>Conectar</button>
+              <div class="bq5-mpcode-actions">
+                <button id="mp-host-scan" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-qr-scan" data-value="host" hidden>Ler QR Code</button>
+                <button id="mp-host-connect" class="bq5-btn bq5-btn--primary bq5-btn--sm" type="button" data-action="mp-host-connect" disabled>Conectar</button>
+              </div>
+              <p id="mp-host-scan-note" class="bq5-hint" hidden>Sem leitor integrado neste navegador. Peça ao outro jogador para tocar em “Copiar código” e enviar o texto; depois cole aqui.</p>
             </div>
           </div>
 
           <div id="mp-panel-join" class="bq5-mppanel" hidden>
             <ol class="bq5-steps">
-              <li>Cole o código da sala que o anfitrião enviou e toque em Entrar.</li>
-              <li>Copie o seu código de resposta e envie ao anfitrião.</li>
+              <li>Leia o QR da sala pelo botão “Ler QR Code” ou cole o texto recebido.</li>
+              <li>Envie sua resposta por texto ou mostre o QR Code ao anfitrião.</li>
               <li>Aguarde: a conexão abre sozinha.</li>
             </ol>
             <div class="bq5-field">
               <label class="bq5-label" for="mp-join-offer">Código da sala</label>
               <textarea id="mp-join-offer" class="bq5-textarea" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
-              <button id="mp-join-go" class="bq5-btn bq5-btn--primary bq5-btn--sm" type="button" data-action="mp-join-go">Entrar</button>
+              <div class="bq5-mpcode-actions">
+                <button id="mp-join-scan" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-qr-scan" data-value="join" hidden>Ler QR Code</button>
+                <button id="mp-join-go" class="bq5-btn bq5-btn--primary bq5-btn--sm" type="button" data-action="mp-join-go">Entrar</button>
+              </div>
+              <p id="mp-join-scan-note" class="bq5-hint" hidden>Sem leitor integrado neste navegador. Peça ao outro jogador para tocar em “Copiar código” e enviar o texto; depois cole aqui.</p>
             </div>
             <div class="bq5-field">
               <label class="bq5-label" for="mp-join-code">Seu código de resposta</label>
               <textarea id="mp-join-code" class="bq5-textarea" readonly></textarea>
-              <button id="mp-join-copy" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-copy" data-value="join" disabled>Copiar código</button>
+              <div class="bq5-mpcode-actions">
+                <button id="mp-join-copy" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-copy" data-value="join" disabled>Copiar código</button>
+                <button id="mp-join-qr-toggle" class="bq5-btn bq5-btn--secondary bq5-btn--sm" type="button" data-action="mp-qr-toggle" data-value="join" disabled>Exibir QR Code</button>
+              </div>
+              <div id="mp-join-qr-panel" class="bq5-mpqr-panel" hidden>
+                <h3 class="bq5-section__title">QR Code de resposta</h3>
+                <div id="mp-join-qr" class="bq5-mpqr-image" role="img" aria-label="QR Code com o código de resposta"></div>
+                <p class="bq5-mpqr-note">Mostre este QR ao anfitrião. Ele pode usar “Ler QR Code” no próprio jogo, quando disponível, ou copiar o texto e colar no campo de resposta.</p>
+              </div>
             </div>
           </div>
 
           <p id="mp-status" class="bq5-hint bq5-mpstatus" role="status" data-kind="info"></p>
+        </div>
+        <div id="mp-qr-scanner" class="bq5-modal" role="dialog" aria-modal="true" aria-labelledby="mp-qr-scanner-title" hidden>
+          <div class="bq5-modal__panel">
+            <h2 id="mp-qr-scanner-title" class="bq5-modal__title">Ler QR Code</h2>
+            <p class="bq5-modal__text">Aponte a câmera para o QR Code exibido no outro aparelho. O código será preenchido; você ainda precisará tocar em Entrar ou Conectar.</p>
+            <video id="mp-qr-video" class="bq5-mpscanner-video" autoplay playsinline muted></video>
+            <p id="mp-qr-scan-status" class="bq5-hint" role="status">Solicitando acesso à câmera…</p>
+            <div class="bq5-modal__actions">
+              <button class="bq5-btn bq5-btn--secondary" type="button" data-action="mp-qr-scan-close">Fechar câmera</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -749,6 +784,7 @@
   <script src="js/screens/results.js"></script>          <!-- módulo 11 -->
   <script src="js/hp.js"></script>                       <!-- módulo 18: sistema de HP -->
   <script src="js/multiplayer/lan.js"></script>          <!-- transporte WebRTC usado pelo módulo 13 -->
+  <script src="js/multiplayer/qr.js"></script>           <!-- geração local de QR Code suplementar -->
   <script src="js/multiplayer/local.js"></script>        <!-- módulo 13: multiplayer 1x1 (modo clássico) -->
   <script src="js/multiplayer/alt.js"></script>          <!-- módulo 13: modo alternativo (usa hp.js) -->
   <!-- PENDENTES: adicionar cada módulo ao concluir sua implementação
