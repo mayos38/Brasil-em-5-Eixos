@@ -58,6 +58,7 @@
   var unsubscribers = [];
   var S = null;
   var variants = {};     // outras modalidades registradas (ex.: 'alternative', em multiplayer/alt.js)
+  var qrScanner = { active: false, session: null, target: null, trigger: null, photoTarget: null };
 
   function ui() { return BQ5.ui || null; }
   function config() { return BQ5.config || {}; }
@@ -229,7 +230,7 @@
 
   function setupLead() {
     return 'Nesta tela os dois aparelhos se conectam, e é preciso estar na mesma rede Wi-Fi. ' +
-      'Um jogador cria a sala e envia o código ao outro. O outro entra com esse código e devolve um código de resposta.';
+      'O anfitrião envia o texto ou mostra o QR Code da sala. O convidado pode ler o QR no próprio jogo, quando disponível, ou colar o texto; depois devolve a resposta por texto ou QR Code.';
   }
 
   function renderRole() {
@@ -264,9 +265,13 @@
     setValue('#mp-join-offer', '');
     setValue('#mp-join-code', '');
     setDisabled('#mp-host-copy', true);
+    setDisabled('#mp-host-qr-toggle', true);
     setDisabled('#mp-host-connect', true);
     setDisabled('#mp-join-copy', true);
+    setDisabled('#mp-join-qr-toggle', true);
     setDisabled('#mp-join-go', false);
+    resetQrPanels();
+    updateScannerAvailability();
     ui().text('#mp-setup-lead', setupLead());
     renderRole();
     setStatus(S.pendingNote, S.pendingNote ? 'error' : 'info');
@@ -306,15 +311,19 @@
     setValue('#mp-join-offer', '');
     setValue('#mp-join-code', '');
     setDisabled('#mp-host-copy', true);
+    setDisabled('#mp-host-qr-toggle', true);
     setDisabled('#mp-host-connect', true);
     setDisabled('#mp-join-copy', true);
+    setDisabled('#mp-join-qr-toggle', true);
     setDisabled('#mp-join-go', false);
+    resetQrPanels();
     if (role === 'host') startHostLink();
     else setStatus('Cole o código da sala que o anfitrião enviou e toque em Entrar.', 'info');
     return true;
   }
 
   function lanApi() { return BQ5.lan || null; }
+  function qrReader() { return BQ5.qrReader || null; }
 
   function startHostLink() {
     var lan = lanApi();
@@ -333,8 +342,9 @@
       if (id !== S.linkSeq) return;
       setValue('#mp-host-code', code);
       setDisabled('#mp-host-copy', false);
+      setDisabled('#mp-host-qr-toggle', false);
       setDisabled('#mp-host-connect', false);
-      setStatus((note ? note + ' ' : '') + 'Código da sala pronto. Copie e envie ao outro jogador.', note ? 'error' : 'ok');
+      setStatus((note ? note + ' ' : '') + 'Código da sala pronto. Copie o texto ou mostre o QR Code ao outro jogador.', note ? 'error' : 'ok');
     }, function (error) {
       if (id !== S.linkSeq) return;
       setStatus(error && error.message ? error.message : 'Não foi possível gerar o código da sala.', 'error');
@@ -385,6 +395,10 @@
     readNick();
     closeLink();
     var id = ++S.linkSeq;
+    setValue('#mp-join-code', '');
+    setDisabled('#mp-join-copy', true);
+    setDisabled('#mp-join-qr-toggle', true);
+    resetQrPanel('join');
     setDisabled('#mp-join-go', true);
     setStatus('Gerando o seu código de resposta…', 'info');
     var link = lan.join(code);
@@ -395,13 +409,287 @@
       S.phase = 'connecting';
       setValue('#mp-join-code', answer);
       setDisabled('#mp-join-copy', false);
-      setStatus('Pronto. Copie o código de resposta, envie ao anfitrião e aguarde: a conexão abre sozinha.', 'ok');
+      setDisabled('#mp-join-qr-toggle', false);
+      setStatus('Pronto. Copie o texto ou mostre o QR Code ao anfitrião e aguarde: a conexão abre sozinha.', 'ok');
     }, function (error) {
       if (id !== S.linkSeq) return;
       setDisabled('#mp-join-go', false);
       setStatus(error && error.message ? error.message : 'Código da sala inválido.', 'error');
     });
     return { ok: true };
+  }
+
+  // ---------- QR Code suplementar (gerado localmente, sem câmera/API remota) ----------
+
+  function qrNodes(which) {
+    var prefix = which === 'join' ? 'mp-join' : 'mp-host';
+    return {
+      code: '#' + prefix + '-code',
+      button: '#' + prefix + '-qr-toggle',
+      panel: '#' + prefix + '-qr-panel',
+      image: '#' + prefix + '-qr'
+    };
+  }
+
+  function resetQrPanel(which) {
+    var nodes = qrNodes(which);
+    var panel = ui().el(nodes.panel);
+    var button = ui().el(nodes.button);
+    var image = ui().el(nodes.image);
+    if (panel) panel.hidden = true;
+    if (button) button.textContent = 'Exibir QR Code';
+    clearNode(image);
+  }
+
+  function resetQrPanels() {
+    resetQrPanel('host');
+    resetQrPanel('join');
+  }
+
+  function renderQrSvg(target, value, labelText) {
+    var qr = BQ5.qr;
+    if (!qr || typeof qr.encode !== 'function') throw new Error('O gerador de QR Code não foi carregado. Use “Copiar código”.');
+    var encoded = qr.encode(value);
+    var matrix = encoded.matrix;
+    var size = matrix.length;
+    var margin = 4;
+    var total = size + margin * 2;
+    var doc = global.document;
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = doc.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + total + ' ' + total);
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', labelText);
+    svg.setAttribute('focusable', 'false');
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    var background = doc.createElementNS(ns, 'rect');
+    background.setAttribute('x', '0'); background.setAttribute('y', '0');
+    background.setAttribute('width', String(total)); background.setAttribute('height', String(total));
+    background.setAttribute('fill', '#ffffff');
+    svg.appendChild(background);
+    var path = doc.createElementNS(ns, 'path');
+    var d = '';
+    for (var row = 0; row < size; row++) {
+      for (var col = 0; col < size; col++) {
+        if (matrix[row][col]) d += 'M' + (col + margin) + ' ' + (row + margin) + 'h1v1h-1z';
+      }
+    }
+    path.setAttribute('d', d);
+    path.setAttribute('fill', '#000000');
+    svg.style.colorScheme = 'light';
+    path.setAttribute('shape-rendering', 'crispEdges');
+    svg.appendChild(path);
+    clearNode(target);
+    target.appendChild(svg);
+    target.setAttribute('data-qr-version', String(encoded.version));
+  }
+
+  // Caminho principal: PNG com escala inteira (nítido, leve, imune a SVG
+  // escurecido pelo modo escuro). Reserva: SVG, se o canvas não existir.
+  function renderQr(target, value, labelText) {
+    var qr = BQ5.qr;
+    if (!qr || typeof qr.encode !== 'function') throw new Error('O gerador de QR Code não foi carregado. Use “Copiar código”.');
+    if (typeof qr.draw === 'function') {
+      var encoded = qr.encode(value);
+      var img = qr.draw(target, encoded.matrix, { alt: labelText });
+      if (img) {
+        target.setAttribute('data-qr-version', String(encoded.version));
+        target.setAttribute('data-qr-level', String(encoded.correction));
+        return;
+      }
+    }
+    renderQrSvg(target, value, labelText);
+  }
+
+  function toggleQr(which) {
+    if (which !== 'host' && which !== 'join') return false;
+    var nodes = qrNodes(which);
+    var panel = ui().el(nodes.panel);
+    var button = ui().el(nodes.button);
+    var image = ui().el(nodes.image);
+    if (!panel || !button || !image) return false;
+    if (!panel.hidden) {
+      panel.hidden = true;
+      button.textContent = 'Exibir QR Code';
+      clearNode(image); // libera a imagem enquanto o painel está oculto
+      return true;
+    }
+    var code = getValue(nodes.code).trim();
+    if (!code) {
+      setStatus('Gere o código primeiro. A opção de QR é suplementar; você também pode copiar o texto.', 'error');
+      return false;
+    }
+    try {
+      panel.hidden = false; // precisa estar visível para medir a largura disponível
+      renderQr(image, code, which === 'host' ? 'QR Code da sala' : 'QR Code de resposta');
+      button.textContent = 'Ocultar QR Code';
+      return true;
+    } catch (error) {
+      panel.hidden = true;
+      setStatus(error && error.message ? error.message : 'Não foi possível gerar o QR Code. Use “Copiar código”.', 'error');
+      return false;
+    }
+  }
+
+  // Leitura no próprio navegador (js/multiplayer/qr-reader.js). Há dois caminhos:
+  //  - câmera ao vivo: precisa de HTTPS/localhost;
+  //  - "Ler por foto": funciona em qualquer endereço e navegador.
+  // Os campos de texto e os botões de copiar continuam como fluxo principal.
+  function scannerSupported() {
+    var reader = qrReader();
+    return !!(reader && reader.liveSupported());
+  }
+
+  function updateScannerAvailability() {
+    var live = scannerSupported();
+    var hasReader = !!qrReader();
+    ['host', 'join'].forEach(function (which) {
+      var prefix = which === 'host' ? '#mp-host' : '#mp-join';
+      var button = ui().el(prefix + '-scan');
+      var photo = ui().el(prefix + '-photo');
+      var note = ui().el(prefix + '-scan-note');
+      if (button) button.hidden = !live;
+      if (photo) photo.hidden = !hasReader;
+      if (note) note.hidden = live;
+    });
+  }
+
+  function scannerStatus(message) {
+    var node = ui().el('#mp-qr-scan-status');
+    if (node) node.textContent = message || '';
+  }
+
+  function stopQrScanner(restoreFocus) {
+    var session = qrScanner.session;
+    qrScanner.session = null;
+    if (session) session.stop();
+    var video = ui().el('#mp-qr-video');
+    if (video) {
+      try { video.pause(); } catch (error) { /* ignora */ }
+      video.srcObject = null;
+    }
+    var modal = ui().el('#mp-qr-scanner');
+    if (modal) modal.hidden = true;
+    var trigger = qrScanner.trigger;
+    qrScanner.active = false;
+    qrScanner.target = null;
+    qrScanner.trigger = null;
+    if (qrReader()) qrReader().release();
+    if (restoreFocus && trigger && typeof trigger.focus === 'function') trigger.focus();
+  }
+
+  // Mensagem para quando o jsQR não pôde ser usado, com o motivo técnico.
+  function engineMissingMessage(fallbackHint) {
+    var reader = qrReader();
+    var issue = reader && typeof reader.lastIssue === 'function' ? reader.lastIssue() : '';
+    return 'Não consegui iniciar o leitor de QR' + (issue ? ' (' + issue + ')' : '') + '. ' + fallbackHint;
+  }
+
+  // Recebe o texto lido (câmera ou foto). Retorna Promise: true = aceito e
+  // aplicado ao campo; string = mensagem de por que não serve.
+  function handleScannedText(target, rawText) {
+    var raw = String(rawText || '').replace(/\s+/g, '');
+    if (!raw) return Promise.resolve('Nenhum QR Code encontrado.');
+    return lanApi()._decodeCode(raw).then(function (decoded) {
+      var expected = target === 'host' ? 'A' : 'O';
+      if (decoded.kind !== expected) {
+        return target === 'host'
+          ? 'Este QR contém o código da sala. Leia o QR de resposta do convidado.'
+          : 'Este QR contém uma resposta. Leia o código da sala do anfitrião.';
+      }
+      var selector = target === 'host' ? '#mp-host-answer' : '#mp-join-offer';
+      setValue(selector, raw);
+      stopQrScanner(false);
+      var field = ui().el(selector);
+      if (field && typeof field.focus === 'function') field.focus();
+      setStatus('QR Code lido. Confira o campo e toque em ' + (target === 'host' ? 'Conectar.' : 'Entrar.'), 'ok');
+      return true;
+    }, function () {
+      return 'QR reconhecido, mas não contém um código válido do Brasil em 5 Eixos.';
+    });
+  }
+
+  function startQrScanner(which, trigger) {
+    if (which !== 'host' && which !== 'join') return false;
+    var reader = qrReader();
+    if (!reader || !reader.liveSupported()) {
+      setStatus('A câmera ao vivo não está disponível neste navegador/endereço. Use “Ler por foto” ou cole o texto no campo.', 'info');
+      updateScannerAvailability();
+      return false;
+    }
+    stopQrScanner(false);
+    var modal = ui().el('#mp-qr-scanner');
+    var video = ui().el('#mp-qr-video');
+    if (!modal || !video) return false;
+    qrScanner.active = true;
+    qrScanner.target = which;
+    qrScanner.trigger = trigger || null;
+    modal.hidden = false;
+    scannerStatus('Ativando câmera…');
+
+    var session = reader.startLive({
+      video: video,
+      onStatus: scannerStatus,
+      onText: function (text) { return handleScannedText(which, text); },
+      onError: function () {
+        stopQrScanner(true);
+        setStatus(engineMissingMessage('Use “Ler por foto” ou cole o código manualmente.'), 'info');
+      }
+    });
+    qrScanner.session = session;
+    return session.ready.catch(function (error) {
+      if (qrScanner.session !== session) return;
+      stopQrScanner(true);
+      var code = error && error.code;
+      var message = error && error.name === 'NotAllowedError'
+        ? 'Acesso à câmera negado. Permita o uso da câmera, use “Ler por foto” ou cole o código manualmente.'
+        : (code === 'NO_ENGINE'
+          ? engineMissingMessage('Use “Ler por foto” ou cole o código manualmente.')
+          : 'Não foi possível iniciar a câmera. Use “Ler por foto” ou cole o texto manualmente.');
+      setStatus(message, 'info');
+    });
+  }
+
+  // "Ler por foto": abre a câmera/galeria do sistema e decodifica a imagem.
+  function startQrPhoto(which, trigger) {
+    if (which !== 'host' && which !== 'join') return false;
+    var input = ui().el('#mp-qr-file');
+    if (!input || !qrReader()) return false;
+    stopQrScanner(false);
+    qrScanner.photoTarget = which;
+    qrScanner.trigger = trigger || null;
+    input.value = '';
+    input.click();
+    return true;
+  }
+
+  function onPhotoSelected(event) {
+    var input = event && event.target;
+    var file = input && input.files && input.files[0];
+    var which = qrScanner.photoTarget;
+    qrScanner.photoTarget = null;
+    if (!file || !which || !qrReader()) return;
+    setStatus('Lendo a imagem…', 'info');
+    qrReader().decodeFile(file).then(function (text) {
+      return handleScannedText(which, text);
+    }).then(function (result) {
+      if (result !== true) setStatus(String(result), 'error');
+    }, function (error) {
+      var code = error && error.code;
+      setStatus(code === 'NO_ENGINE'
+        ? engineMissingMessage('Cole o código manualmente.')
+        : 'Não encontrei um QR Code nessa imagem. Chegue mais perto, deixe o QR inteiro e nítido, aumente o brilho da outra tela e tente de novo.', 'error');
+    }).then(function () {
+      input.value = '';
+      qrReader().release();
+    });
+  }
+
+  function onVisibilityChange() {
+    if (global.document && global.document.hidden && qrScanner.active) {
+      stopQrScanner(true);
+      setStatus('Leitura interrompida ao sair do jogo. Você pode tentar novamente ou colar o código.', 'info');
+    }
   }
 
   function copyCode(which) {
@@ -1235,6 +1523,7 @@
   // ---------- limpeza ----------
 
   function teardown() {
+    stopQrScanner(false);
     Object.keys(variants).forEach(function (key) {
       if (variants[key] && typeof variants[key].reset === 'function') variants[key].reset();
     });
@@ -1260,6 +1549,7 @@
   function onScreenChange(detail) {
     if (!detail) return;
     var to = detail.to, from = detail.from;
+    if (from === 'mp-setup' && to !== 'mp-setup') stopQrScanner(false);
     if (HIDE_BACK.indexOf(to) !== -1) ui().hidden('#bq5-back', true);
     if (from === 'results') dropReplay();
     if (S.phase === 'idle' && !S.transport && !S.link) return;
@@ -1301,6 +1591,10 @@
     unsubscribers.push(api.onAction('mp-pick-mode', function (d) { pickMode(d.value); }));
     unsubscribers.push(api.onAction('mp-role', function (d) { selectRole(d.value); }));
     unsubscribers.push(api.onAction('mp-copy', function (d) { copyCode(d.value); }));
+    unsubscribers.push(api.onAction('mp-qr-toggle', function (d) { toggleQr(d.value); }));
+    unsubscribers.push(api.onAction('mp-qr-scan', function (d) { startQrScanner(d.value, d.element); }));
+    unsubscribers.push(api.onAction('mp-qr-photo', function (d) { startQrPhoto(d.value, d.element); }));
+    unsubscribers.push(api.onAction('mp-qr-scan-close', function () { stopQrScanner(true); }));
     unsubscribers.push(api.onAction('mp-host-connect', hostConnect));
     unsubscribers.push(api.onAction('mp-join-go', guestJoin));
     unsubscribers.push(api.onAction('mp-select-theme', function (d) { selectTheme(d.value); }));
@@ -1324,8 +1618,12 @@
     if (!ui() || typeof ui().onAction !== 'function') return { ok: false, code: 'NO_UI' };
     var options = ui().el('#mp-options');
     if (options && options.addEventListener) options.addEventListener('click', clickOption);
+    var fileInput = ui().el('#mp-qr-file');
+    if (fileInput && fileInput.addEventListener) fileInput.addEventListener('change', onPhotoSelected);
     bindRadioKeys(ui().el('#mp-role'));
     bindActions();
+    if (global.document && global.document.addEventListener) global.document.addEventListener('visibilitychange', onVisibilityChange);
+    updateScannerAvailability();
     initialized = true;
     return { ok: true };
   }

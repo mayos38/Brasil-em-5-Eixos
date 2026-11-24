@@ -1,0 +1,4 @@
+Coloque aqui o arquivo jsQR.min.js (biblioteca jsQR, licença MIT, https://github.com/cozmo/jsQR).
+Ele é carregado SOB DEMANDA pelo js/multiplayer/qr-reader.js, só quando o jogador toca em
+"Ler QR Code" / "Ler por foto" e o navegador não tem leitor nativo.
+Nome exato esperado: js/vendor/jsQR.min.js

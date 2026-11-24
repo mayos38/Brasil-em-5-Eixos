@@ -25,7 +25,7 @@ BASE_SCRIPTS = (
     'js/config.js', 'js/util.js', 'js/storage.js', 'js/bank.js', 'js/engine.js'
 )
 ACTIVE_UI_SCRIPTS = ('js/ui.js', 'js/screens/menu.js', 'js/screens/setup.js', 'js/screens/play.js', 'js/screens/results.js')
-MP_SCRIPTS = ('js/hp.js', 'js/multiplayer/lan.js', 'js/multiplayer/local.js', 'js/multiplayer/alt.js')  # M18 (HP) + M13 (+ transporte)
+MP_SCRIPTS = ('js/hp.js', 'js/multiplayer/lan.js', 'js/multiplayer/qr.js', 'js/multiplayer/qr-reader.js', 'js/multiplayer/local.js', 'js/multiplayer/alt.js')  # M18 (HP) + M13 (+ transporte e QR suplementar)
 PENDING_UI_SCRIPTS = (
     'js/screens/campaign.js', 'js/main.js'
 )
@@ -603,7 +603,7 @@ def main():
     for src in ACTIVE_UI_SCRIPTS:
         check('script de interface ativo existe: ' + src, (paths['game'] / src).is_file())
     mp_active = [src for src in active_sources if src in MP_SCRIPTS]
-    check('Módulos 18 e 13 ativos na ordem correta (HP, transporte, lógica, modo alternativo)', tuple(mp_active) == MP_SCRIPTS, mp_active)
+    check('Módulos 18 e 13 ativos na ordem correta (HP, transporte, QR, lógica, modo alternativo)', tuple(mp_active) == MP_SCRIPTS, mp_active)
     for src in MP_SCRIPTS:
         check('script do multiplayer existe: ' + src, (paths['game'] / src).is_file())
     pending_missing = [src for src in PENDING_UI_SCRIPTS if src not in joined_comments]
@@ -614,7 +614,7 @@ def main():
             optional = (paths['html'].parent / src).resolve()
             if not optional.is_file():
                 warn('script de pré-visualização opcional não localizado: ' + src)
-        elif src not in BASE_SCRIPTS and src not in ACTIVE_UI_SCRIPTS and src not in PENDING_UI_SCRIPTS:
+        elif src not in BASE_SCRIPTS and src not in ACTIVE_UI_SCRIPTS and src not in MP_SCRIPTS and src not in PENDING_UI_SCRIPTS:
             warn('script ativo fora da lista-base: ' + src)
 
     # ---- JavaScript references and dynamic classes ----

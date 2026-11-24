@@ -5,6 +5,7 @@
  *   1) o anfitrião gera o CÓDIGO DA SALA;
  *   2) o convidado cola esse código e recebe o CÓDIGO DE RESPOSTA;
  *   3) o anfitrião cola a resposta e o canal de dados abre.
+ * A UI também pode exibir cada código em QR local; a troca de texto permanece.
  *
  * Esta camada NÃO conhece regras do jogo, telas, storage ou engine. Ela só
  * entrega um "transporte" com a interface abaixo, usada por multiplayer/local.js:
