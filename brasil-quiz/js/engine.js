@@ -332,9 +332,14 @@
         function (q) { return q.region === region && q.theme === theme && inTier(q); },
         function (q) { return q.region === region && inTier(q); }
       ];
+      // Parada temática: o tema da parada é FIXO. Cada estágio é embaralhado
+      // separadamente e concatenado em ordem — questões do tema vêm sempre
+      // primeiro; o fallback regional (outros temas) só completa o que faltar,
+      // nunca se mistura ao bloco do tema.
       for (var s = 0; candidates.length < count && s < stages.length; s++) {
         var pick = all.filter(function (q) { return !seen[q.id] && stages[s](q); });
-        for (var i = 0; i < pick.length; i++) { seen[pick[i].id] = true; candidates.push(pick[i]); }
+        for (var i = 0; i < pick.length; i++) { seen[pick[i].id] = true; }
+        candidates = candidates.concat(shuffle(pick));
       }
     }
 
@@ -347,7 +352,7 @@
       ] };
     }
 
-    var ordered = theme === 'all' ? candidates : shuffle(candidates);
+    var ordered = candidates; // mista: já ordenada acima; temática: tema fixo primeiro (sem reembaralhar)
     var quiz = ordered.slice(0, count).map(instantiate);
 
     G = {

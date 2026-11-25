@@ -66,10 +66,10 @@
   --bq5-region-sudeste: #4E8FD1;
   --bq5-region-sul: #A78BFA;
 
-  /* tipografia (alpha #4): Pixelify Sans para textos/interface e Silkscreen
-     para títulos/botões/elementos curtos (Google Fonts via <link> no index.html);
+  /* tipografia (alpha #4): Pixeloid Sans para textos/interface e Silkscreen
+     para títulos/botões/elementos curtos (Pixeloid Sans: arquivo local; Silkscreen: local + Google Fonts via <link> no index.html);
      fallbacks locais/sistema preservados. */
-  --bq5-font: "Pixelify Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --bq5-font: "Pixeloid Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --bq5-font-display: "Silkscreen", var(--bq5-font);
   --bq5-font-mono: Consolas, "SF Mono", ui-monospace, Menlo, monospace;
   --bq5-fs-xs: 0.8125rem;
@@ -1662,9 +1662,16 @@ code {
    Declaradas após o <link> do index.html: quando os arquivos existem, prevalecem sobre a web;
    sem eles, o fallback continua sendo Google Fonts + sistema. */
 @font-face {
-  font-family: "Pixelify Sans";
-  src: url("../assets/fonts/PixelifySans-Variable.ttf") format("truetype");
-  font-weight: 400 700;
+  font-family: "Pixeloid Sans";
+  src: url("../assets/fonts/PixeloidSans.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Pixeloid Sans";
+  src: url("../assets/fonts/PixeloidSans-Bold.ttf") format("truetype");
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
