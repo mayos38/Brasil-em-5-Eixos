@@ -58,3 +58,7 @@ Status: Implementado, dia 25-11-2026; verificação do preview integrado 9/9 em 
 
 ### M5.5 alinhado à paleta atual (2026-11-25)
 - A identidade visual agora documenta a paleta real do produto (oliva-escura + dourado), encerrando a divergência registrada.
+
+### Troca de fonte (2026-11-25)
+- Fonte de textos/interface: Pixelify Sans substituída por Pixeloid Sans (@font-face local em assets/fonts/PixeloidSans.ttf). Silkscreen e demais módulos inalterados.
+- Pixeloid Sans (regular + bold) com assets locais e licença em assets/fonts; não existe no Google Fonts, então não está no <link> do index.html.

@@ -108,7 +108,7 @@
     }
 
     // Alpha #4: os links do <head> da interface real também precisam chegar à
-    // página de preview — sem isso, as fontes Google Fonts (Pixelify Sans +
+    // página de preview — sem isso, as fontes Google Fonts (Pixeloid Sans +
     // Silkscreen) só funcionariam abrindo o index.html diretamente.
     var pHead = parsed && parsed.head;
     if (pHead && pHead.childNodes) {
