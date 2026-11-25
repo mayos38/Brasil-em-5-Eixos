@@ -554,14 +554,18 @@ function collectStageQuiz(opts) {
   return qs;
 }
 
-test('stage temático: só questões da região+tier (fallback regional permitido)', function () {
+test('stage temático: tema travado (só o tema da parada, na região)', function () {
   resetAll(); officialBank();
-  var tierDs = BQ5.config.tiers.normal;
-  var qs = collectStageQuiz({ region: 'norte', tier: 'normal', theme: 'animais' });
-  assert(qs.length === BQ5.config.campaignV2.questionsPerPoint, 'parada com 10 questões');
-  for (var k = 0; k < qs.length; k++) {
-    assert(qs[k].reg === 'norte', 'questão fora da região: ' + qs[k].id);
-    assert(tierDs.indexOf(qs[k].d) !== -1, 'questão fora do tier: ' + qs[k].id + ' (d=' + qs[k].d + ')');
+  var regs = BQ5.config.regions, tiers = ['edu', 'normal', 'dificil'];
+  for (var ti = 0; ti < tiers.length; ti++) for (var ri = 0; ri < regs.length; ri++) {
+    BQ5.config.themes.forEach(function (th) {
+      var qs = collectStageQuiz({ region: regs[ri], tier: tiers[ti], theme: th });
+      assert(qs.length === BQ5.config.campaignV2.questionsPerPoint, 'parada com 10 questões');
+      for (var k = 0; k < qs.length; k++) {
+        assert(qs[k].reg === regs[ri], 'questão fora da região: ' + qs[k].id);
+        assert(qs[k].t === th, 'questão de outro tema (' + qs[k].t + ') na parada ' + th + ': ' + qs[k].id);
+      }
+    });
   }
 });
 

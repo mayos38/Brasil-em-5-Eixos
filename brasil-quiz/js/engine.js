@@ -328,19 +328,20 @@
       for (var i1 = 0; i1 < regionPool.length; i1++) if (candidates.indexOf(regionPool[i1]) === -1) rest.push(regionPool[i1]);
       candidates = shuffle(candidates).concat(shuffle(rest)); // representantes dos eixos primeiro
     } else {
-      var stages = [
-        function (q) { return q.region === region && q.theme === theme && inTier(q); },
-        function (q) { return q.region === region && inTier(q); }
-      ];
-      // Parada temática: o tema da parada é FIXO. Cada estágio é embaralhado
-      // separadamente e concatenado em ordem — questões do tema vêm sempre
-      // primeiro; o fallback regional (outros temas) só completa o que faltar,
-      // nunca se mistura ao bloco do tema.
-      for (var s = 0; candidates.length < count && s < stages.length; s++) {
-        var pick = all.filter(function (q) { return !seen[q.id] && stages[s](q); });
-        for (var i = 0; i < pick.length; i++) { seen[pick[i].id] = true; }
-        candidates = candidates.concat(shuffle(pick));
-      }
+      // Parada temática: TEMA TRAVADO. Só entram questões da região + tema da
+      // parada. Primeiro as da dificuldade (tier) escolhida; se faltar, completa
+      // com o MESMO tema e região em dificuldades vizinhas (mais próximas
+      // primeiro). Nunca puxa outro tema nem outra região.
+      var themed = all.filter(function (q) { return q.region === region && q.theme === theme; });
+      var inT = shuffle(themed.filter(inTier));
+      var distOf = function (q) {
+        var m = Infinity;
+        for (var k = 0; k < tierDs.length; k++) m = Math.min(m, Math.abs(q.difficulty - tierDs[k]));
+        return m;
+      };
+      var outT = shuffle(themed.filter(function (q) { return !inTier(q); }));
+      outT.sort(function (x, y) { return distOf(x) - distOf(y); }); // estável: sorteio preservado dentro da mesma distância
+      candidates = inT.concat(outT);
     }
 
     if (candidates.length < count) {
@@ -352,7 +353,7 @@
       ] };
     }
 
-    var ordered = candidates; // mista: já ordenada acima; temática: tema fixo primeiro (sem reembaralhar)
+    var ordered = theme === 'all' ? candidates : shuffle(candidates.slice(0, count)); // temática: só tema travado; embaralha apenas a ordem das escolhidas
     var quiz = ordered.slice(0, count).map(instantiate);
 
     G = {

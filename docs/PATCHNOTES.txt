@@ -62,3 +62,6 @@ Status: Implementado, dia 25-11-2026; verificação do preview integrado 9/9 em 
 ### Troca de fonte (2026-11-25)
 - Fonte de textos/interface: Pixelify Sans substituída por Pixeloid Sans (@font-face local em assets/fonts/PixeloidSans.ttf). Silkscreen e demais módulos inalterados.
 - Pixeloid Sans (regular + bold) com assets locais e licença em assets/fonts; não existe no Google Fonts, então não está no <link> do index.html.
+
+### Campanha: tema travado nas paradas temáticas (2026-11-25)
+- engine.stage(): ponto temático usa só questões da região + tema da parada; se a dificuldade não tiver 10, completa com o mesmo tema/região em dificuldades vizinhas. Nunca puxa outro tema. Paradas mistas (Geógrafo) inalteradas.

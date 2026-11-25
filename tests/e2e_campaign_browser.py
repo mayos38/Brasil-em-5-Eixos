@@ -26,7 +26,7 @@ with sync_playwright() as p:
     pg.clock.run_for(500)
     pg.wait_for_selector('#screen-menu:not([hidden])',timeout=15000)
     check(pg.locator('#menu-bank-info').count()==0,'menu sem info do banco')
-    check(pg.evaluate("[...document.fonts].filter(f=>f.status==='loaded').map(f=>f.family).sort().join()")=='Pixelify Sans,Silkscreen','fontes locais carregadas')
+    check(pg.evaluate("[...document.fonts].filter(f=>f.status==='loaded').map(f=>f.family).sort().join()")=='Pixeloid Sans,Silkscreen','fontes locais carregadas')
     check(len(pg.evaluate("getComputedStyle(document.querySelector('.bq5-menu')).gridTemplateColumns").split())==1,'menu em coluna única')
     pg.click('[data-action=go-campaign]')
     pg.wait_for_selector('#screen-campaign:not([hidden])')
