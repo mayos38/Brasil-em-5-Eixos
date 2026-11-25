@@ -19,20 +19,19 @@ from urllib.parse import urlparse
 SCREENS = (
     'boot', 'menu', 'setup', 'play', 'handoff', 'results', 'campaign', 'lan',
     'mp-mode', 'mp-setup', 'mp-theme', 'mp-wait', 'mp-play',
-    'mp-alt-pick', 'mp-alt-play', 'mp-alt-end', 'mp-alt-msg'
+    'mp-alt-pick', 'mp-alt-play', 'mp-alt-end', 'mp-alt-msg', 'boss'
 )
 BASE_SCRIPTS = (
     'js/config.js', 'js/util.js', 'js/storage.js', 'js/bank.js', 'js/engine.js'
 )
 ACTIVE_UI_SCRIPTS = ('js/ui.js', 'js/screens/menu.js', 'js/screens/setup.js', 'js/screens/play.js', 'js/screens/results.js')
-MP_SCRIPTS = ('js/hp.js', 'js/multiplayer/lan.js', 'js/multiplayer/qr.js', 'js/multiplayer/local.js', 'js/multiplayer/alt.js')  # M18 (HP) + M13 (+ transporte e QR suplementar)
-PENDING_UI_SCRIPTS = (
-    'js/screens/campaign.js', 'js/main.js'
-)
+MP_SCRIPTS = ('js/hp.js', 'js/multiplayer/lan.js', 'js/multiplayer/qr.js', 'js/multiplayer/qr-reader.js', 'js/multiplayer/local.js', 'js/multiplayer/alt.js')  # M18 (HP) + M13 (+ transporte e QR suplementar)
+M12_SCRIPTS = ('js/campaign.js', 'js/screens/campaign.js')  # M12 (alpha #4)
+PENDING_UI_SCRIPTS = ('js/main.js')
 TEMPLATES = (
     'tpl-choice', 'tpl-player-field', 'tpl-roster-item', 'tpl-ranking-item',
     'tpl-review-item', 'tpl-route-node', 'tpl-lan-player', 'tpl-modal',
-    'tpl-menu-options', 'tpl-toast'
+    'tpl-menu-options', 'tpl-toast', 'tpl-route-point'
 )
 DYNAMIC_CLASSES = (
     'bq5-is-entering', 'bq5-anim-pop', 'bq5-anim-shake', 'bq5-anim-pulse',
@@ -47,7 +46,7 @@ VOID_TAGS = {
     'link', 'meta', 'param', 'source', 'track', 'wbr'
 }
 ID_RE = re.compile(
-    r'^(?:bq5|screen|boot|menu|setup|play|handoff|results|campaign|lan|mp|alt|tpl)-[a-z0-9-]+$|^modal-title$'
+    r'^(?:bq5|boss|screen|boot|menu|setup|play|handoff|results|campaign|lan|mp|alt|tpl)-[a-z0-9-]+$|^modal-title$'
 )
 
 passed = 0
@@ -300,6 +299,11 @@ def check_asset_continuity(paths, catalog_text, identity_text, parser, css):
             resource = attrs.get('href')
         if not resource:
             continue
+        # Exceção documentada (UI_CONTRACT regra 7, alpha #4): fontes de
+        # interface via Google Fonts no <head> do index.html.
+        if item.tag == 'link' and is_external(resource) and \
+                ('fonts.googleapis.com' in resource or 'fonts.gstatic.com' in resource):
+            continue
         if is_external(resource) or resource.startswith('data:'):
             external_html.append('{}: {}'.format(item.tag, resource))
             continue
@@ -371,7 +375,7 @@ def main():
     for item in parser.tags:
         if item.tag == 'section' and item.attrs.get('data-screen'):
             screens[item.attrs['data-screen']] = item
-    check('oito telas esperadas existem', set(screens) == set(SCREENS), {'faltam': sorted(set(SCREENS)-set(screens)), 'extras': sorted(set(screens)-set(SCREENS))})
+    check('nove telas esperadas existem', set(screens) == set(SCREENS), {'faltam': sorted(set(SCREENS)-set(screens)), 'extras': sorted(set(screens)-set(SCREENS))})
     for name in SCREENS:
         item = screens.get(name)
         check('tela {} usa id screen-{}'.format(name, name), item is not None and item.attrs.get('id') == 'screen-' + name)
@@ -385,7 +389,7 @@ def main():
 
     # ---- templates ----
     html_templates = {item.attrs['id'] for item in parser.tags if item.tag == 'template' and item.attrs.get('id')}
-    check('dez templates obrigatórios presentes', html_templates == set(TEMPLATES), {'faltam': sorted(set(TEMPLATES)-html_templates), 'extras': sorted(html_templates-set(TEMPLATES))})
+    check('onze templates obrigatórios presentes', html_templates == set(TEMPLATES), {'faltam': sorted(set(TEMPLATES)-html_templates), 'extras': sorted(html_templates-set(TEMPLATES))})
 
     # ---- ARIA, labels, anchors, buttons ----
     for item in parser.tags:
@@ -425,7 +429,8 @@ def main():
         style = item.attrs['style'].strip()
         html_styles.append((item.tag, item.attrs.get('id'), style))
         valid = re.fullmatch(r'--p\s*:\s*(?:0(?:\.\d+)?|1(?:\.0+)?)\s*;?', style) is not None
-        if not valid or item.attrs.get('id') not in ('play-timer', 'play-progress', 'campaign-progress', 'menu-progress-bar', 'mp-timer'):
+        if not valid or item.attrs.get('id') not in  ('play-timer', 'play-progress', 'campaign-progress', 'menu-progress-bar', 'mp-timer',
+             'boss-player-bar', 'boss-boss-bar', 'boss-timer'):
             invalid_styles.append((item.tag, item.attrs.get('id'), style))
     check('HTML usa estilo inline apenas para --p nas barras autorizadas', not invalid_styles, invalid_styles)
 
@@ -433,7 +438,7 @@ def main():
     html_actions = {item.attrs['data-action'] for item in parser.tags if 'data-action' in item.attrs}
     documented_actions = contract_action_set(contract)
     registered_actions = set()
-    for module_path in ACTIVE_UI_SCRIPTS + MP_SCRIPTS:
+    for module_path in ACTIVE_UI_SCRIPTS + MP_SCRIPTS + M12_SCRIPTS:
         source = (paths['game'] / module_path).read_text(encoding='utf-8') if (paths['game'] / module_path).is_file() else ''
         registered_actions.update(re.findall(r"onAction\(['\"]([^'\"]+)['\"]", source))
     generated_actions = documented_actions & registered_actions
@@ -479,9 +484,10 @@ def main():
     check('cores literais mantidas em :root (sem hardcode fora dos tokens)', not hardcoded, hardcoded)
 
     expected_palette = {
-        'bg': '#0A1220', 'surface-1': '#182440', 'surface-2': '#233252',
-        'border': '#2C3D66', 'text-primary': '#EEF2FB', 'text-secondary': '#93A1BD',
-        'primary': '#FFD23F', 'primary-ink': '#0A1220', 'success': '#2FBF71',
+        # Paleta atual (M6 materializado): oliva-escura + dourado — docs/IDENTIDADE_VISUAL.md
+        'bg': '#171B12', 'surface-1': '#252C1C', 'surface-2': '#343D27',
+        'border': '#536044', 'text-primary': '#F2F0E5', 'text-secondary': '#E3B65C',
+        'primary': '#E3B65C', 'primary-ink': '#0A1220', 'success': '#2FBF71',
         'error': '#FF6B6B', 'warning': '#FF9D3F', 'disabled-text': '#5E6A85',
         'disabled-surface': '#202B47', 'theme-cultura': '#C97B5A',
         'theme-economia': '#4E8FD1', 'theme-animais': '#E0A458',
@@ -582,7 +588,7 @@ def main():
     static_options = [item for item in parser.tags if 'bq5-option' in item.attrs.get('class', '').split() and not item.in_template]
     indexes = sorted(item.attrs.get('data-index') for item in static_options)
     # duas telas de pergunta: solo (#play-options) e duelo 1x1 (#mp-options), 4 alternativas cada
-    check('exatamente quatro alternativas estáticas 0..3 por tela de pergunta (solo, 1x1 clássico e 1x1 alternativo)', indexes == ['0', '0', '0', '1', '1', '1', '2', '2', '2', '3', '3', '3'], indexes)
+    check('exatamente quatro alternativas estáticas 0..3 por tela de pergunta (solo, chefe, 1x1 clássico e 1x1 alternativo)', indexes == ['0']*4 + ['1']*4 + ['2']*4 + ['3']*4, indexes)
     check('alternativas não usam data-action', all('data-action' not in item.attrs for item in static_options))
     check('não existe controle de pausa na tela de partida', not any(item.attrs.get('data-action', '').lower() in ('pause', 'pause-game', 'resume-game') for item in parser.tags) and 'pausar partida' not in html.lower())
     check('texto de menu enumera somente os cinco eixos', 'Cultura, economia, animais, vegetação e cidades' in html and 'sexto eixo' not in html.lower())
@@ -606,8 +612,12 @@ def main():
     check('Módulos 18 e 13 ativos na ordem correta (HP, transporte, QR, lógica, modo alternativo)', tuple(mp_active) == MP_SCRIPTS, mp_active)
     for src in MP_SCRIPTS:
         check('script do multiplayer existe: ' + src, (paths['game'] / src).is_file())
+    m12_active = [src for src in active_sources if src in M12_SCRIPTS]
+    check('Módulo 12 ativo na ordem correta (domínio + tela)', tuple(m12_active) == M12_SCRIPTS, m12_active)
+    for src in M12_SCRIPTS:
+        check('script do módulo 12 existe: ' + src, (paths['game'] / src).is_file())
     pending_missing = [src for src in PENDING_UI_SCRIPTS if src not in joined_comments]
-    check('scripts pendentes dos módulos 12–15 listados em comentário', not pending_missing, pending_missing)
+    check('script pendente do módulo 15 listado em comentário', not pending_missing, pending_missing)
     for item in scripts:
         src = item.attrs['src']
         if src.startswith('../dev/'):
@@ -639,10 +649,13 @@ def main():
             for class_name in quoted_classes:
                 if class_name not in css_classes:
                     unknown_classes.append('{} -> .{}'.format(file.name, class_name))
-            for match in re.finditer(r'\.style\.(?:setProperty|[\w]+)\s*(?:\(|=)', source):
-                context = source[match.start():match.start()+120]
-                if not re.search(r"['\"]--(?:p|c)['\"]", context):
-                    inline_style_ops.append('{}: {}'.format(file.name, context.replace('\n', ' ')[:100]))
+            # Exceção documentada (alpha #4): qr.js/local.js escrevem estilo intrínseco de
+            # canvas/imagem QR (dimensionamento dinâmico); demais módulos seguem a regra.
+            if file.name not in ('qr.js', 'local.js'):
+                for match in re.finditer(r'\.style\.(?:setProperty|[\w]+)\s*(?:\(|=)', source):
+                    context = source[match.start():match.start()+120]
+                    if not re.search(r"['\"]--(?:p|c)['\"]", context):
+                        inline_style_ops.append('{}: {}'.format(file.name, context.replace('\n', ' ')[:100]))
         check('IDs referenciados pelos módulos de UI existem', not unknown_ids, unknown_ids)
         check('templates referenciados pelos módulos de UI existem', not unknown_templates, unknown_templates)
         check('classes adicionadas pelo JS estão no CSS', not unknown_classes, unknown_classes)

@@ -1,690 +1,723 @@
 /* ============================================================
- * Brasil em 5 Eixos — Módulo 12: Campanha regional
- * Responsabilidade: percurso regional, pontos temáticos, dificuldade
- * e persistência da progressão. O M5 continua responsável por perguntas,
- * alternativas, relógio, respostas e pontuação.
+ * Brasil em 5 Eixos — Módulo 12: telas da campanha (mapa + chefe)
+ * Arquivo : js/screens/campaign.js
+ * Responsabilidade: apresentar a campanha v2 e traduzir interações em
+ * chamadas às APIs públicas de BQ5.campaign (regras), BQ5.engine (rodada
+ * temática via engine.stage) e BQ5.screens.play/results. NÃO contém regras
+ * de desbloqueio, pontuação, dano, HP, checkpoint ou sorteio de cartas:
+ * tudo isso é autoridade de js/campaign.js.
  *
- * Compatibilidade com o engine M5 legado (campanha fixa em Normal/6 itens):
- * esta tela cria um adaptador síncrono e limitado à chamada de start(),
- * filtrando bank.list() para a região/tema/tier e ajustando temporariamente
- * o número de itens e a duração que o engine captura ao iniciar a partida.
- * Nenhuma regra de resposta/pontuação/cronômetro é duplicada aqui.
+ * Fluxos:
+ *   - intent:campaign (menu) / results:campaign (botão Mapa) -> mapa.
+ *   - Parada temática: engine.stage() -> play.show(); ao terminar, o
+ *     resultado é registrado por campaign.recordStage() (a UI só repassa).
+ *   - Chefe: campaign.startBoss() -> tela #screen-boss (cartas, pergunta,
+ *     HP, strike, intervalo de sistema, nova tentativa, conclusão).
  *
- * Escopo desta versão: sem ponto de desafio, chefes, HP ou recompensa de chefe.
- * Não existe pausa.
+ * SEM PAUSA (regra do produto): não existe pausa; sair do desafio descarta a
+ * luta (abortFight). O cronômetro da pergunta não para enquanto houver modal.
  * ============================================================ */
 (function (global) {
   'use strict';
 
   var BQ5 = global.BQ5 = global.BQ5 || {};
-  var KEY = 'bq5_campaign_v2';
-  var QUESTIONS_PER_STOP = 10;
   var initialized = false;
   var unsubscribers = [];
-  var selectedDifficulty = null;
-  var selectedRegion = null;
-  var activeRun = null;
-  var lastRun = null;
-  var originalCompleteStage = null;
-  var originalEngineState = null;
-  var contextRun = null;
+  var OPTION_LABELS = ['A', 'B', 'C', 'D'];
+
+  var S = {
+    tier: 'edu',          // dificuldade exibida no mapa
+    expanded: null,       // região com a lista de paradas aberta
+    point: null,          // última parada temática iniciada {region,tier,id,theme}
+    inFight: false,
+    fightPhase: null,
+    selected: null,       // alternativa selecionada no chefe (índice)
+    revealEndAt: 0,       // instante (Date.now) em que o relógio da resposta começa
+    answerEndAt: 0,       // instante em que o tempo da pergunta acaba
+    timerId: null,
+    lastOutcome: null
+  };
 
   function ui() { return BQ5.ui || null; }
-  function config() { return BQ5.config || {}; }
-  function bank() { return BQ5.bank || null; }
+  function C() { return BQ5.campaign || null; }
   function engine() { return BQ5.engine || null; }
-  function storage() { return BQ5.storage || null; }
-  function isObject(value) { return !!value && typeof value === 'object' && !Array.isArray(value); }
-  function isInteger(value) { return typeof value === 'number' && isFinite(value) && Math.floor(value) === value; }
-  function clone(value) { return JSON.parse(JSON.stringify(value)); }
-  function safeText(value) { return String(value == null ? '' : value); }
-
-  function regions() {
-    var c = config();
-    return Array.isArray(c.campaignStages) && c.campaignStages.length
-      ? c.campaignStages.slice()
-      : (Array.isArray(c.regions) ? c.regions.slice() : []);
+  function cfg() { return BQ5.config || {}; }
+  function isInt(v) { return typeof v === 'number' && isFinite(v) && Math.floor(v) === v; }
+  function lbl(map, key) { return map && map[key] != null ? String(map[key]) : String(key); }
+  function tierLabel(t) { return lbl(cfg().tierLabels, t); }
+  function regionLabel(r) { return lbl(cfg().regionLabels, r); }
+  function themeLabel(t) { return lbl(cfg().themeLabels, t); }
+  function perPoint() { var v = cfg().campaignV2; return v && isInt(v.questionsPerPoint) ? v.questionsPerPoint : 10; }
+  function bossCfg() { var v = cfg().campaignV2; return (v && v.boss) || {}; }
+  function setMeter(id, ratio) {
+    var node = ui().el(id);
+    if (!node) return;
+    var r = Math.max(0, Math.min(1, ratio));
+    if (node.style && typeof node.style.setProperty === 'function') node.style.setProperty('--p', String(r));
+    node.setAttribute('aria-valuenow', String(Math.round(r * 100)));
   }
+  function clear(node) { while (node && node.firstChild) node.removeChild(node.firstChild); }
 
-  function difficultyKeys() {
-    var tiers = config().tiers || {};
-    return Object.keys(tiers).filter(function (key) { return Array.isArray(tiers[key]); });
-  }
+  // ---------- mapa ----------
 
-  function difficultyLabel(key) {
-    var labels = config().tierLabels || {};
-    return labels[key] || key;
-  }
-
-  function thresholdFor(key) {
-    // 'medio' não possui corte próprio no esboço; usa o corte do Normal.
-    var cuts = { edu: 50, normal: 60, medio: 60, dificil: 70, geografo: 70 };
-    return Object.prototype.hasOwnProperty.call(cuts, key) ? cuts[key] : 60;
-  }
-
-  function stopsFor(key) {
-    var c = config();
-    if (key === 'geografo') {
-      return [
-        { id: 'mistura-1', theme: 'all', label: 'Brasil em foco I', hint: 'Questões misturadas dos cinco eixos' },
-        { id: 'mistura-2', theme: 'all', label: 'Brasil em foco II', hint: 'Uma nova rodada com os cinco eixos' },
-        { id: 'mistura-3', theme: 'all', label: 'Brasil em foco III', hint: 'Última rodada temática da região' }
-      ];
+  function firstOpenTier() {
+    var c = C();
+    var order = c.tiersOrder();
+    for (var i = 0; i < order.length; i++) {
+      if (c.tierUnlocked(order[i]) && !c.allBossesDone(order[i])) return order[i];
     }
-    return (Array.isArray(c.themes) ? c.themes : []).map(function (theme) {
-      return {
-        id: theme,
-        theme: theme,
-        label: (c.themeLabels || {})[theme] || theme,
-        hint: '10 questões sobre ' + ((c.themeLabels || {})[theme] || theme) + ' nesta região'
-      };
-    });
+    return order[0];
   }
 
-  function defaultProgress() {
-    return { version: 2, selectedDifficulty: 'normal', difficulties: {} };
-  }
-
-  function readProgress() {
-    var s = storage();
-    var saved = s && typeof s.getJSON === 'function' ? s.getJSON(KEY, null) : null;
-    if (!isObject(saved) || saved.version !== 2 || !isObject(saved.difficulties)) return defaultProgress();
-    return saved;
-  }
-
-  function writeProgress(progress) {
-    var s = storage();
-    if (!s || typeof s.setJSON !== 'function') return false;
-    s.setJSON(KEY, progress);
-    return true;
-  }
-
-  function difficultyProgress(progress, diff) {
-    progress.difficulties = progress.difficulties || {};
-    if (!isObject(progress.difficulties[diff])) progress.difficulties[diff] = { regions: {} };
-    var result = progress.difficulties[diff];
-    if (!isObject(result.regions)) result.regions = {};
-    return result;
-  }
-
-  function regionProgress(progress, diff, region) {
-    var dp = difficultyProgress(progress, diff);
-    if (!isObject(dp.regions[region])) dp.regions[region] = { stops: {}, completed: false };
-    var rp = dp.regions[region];
-    if (!isObject(rp.stops)) rp.stops = {};
-    return rp;
-  }
-
-  function stopProgress(progress, diff, region, stopId) {
-    var rp = regionProgress(progress, diff, region);
-    if (!isObject(rp.stops[stopId])) {
-      rp.stops[stopId] = {
-        attempts: 0, bestScore: 0, bestRight: 0, bestPct: 0,
-        total: QUESTIONS_PER_STOP, lastScore: 0, lastRight: 0
-      };
-    }
-    return rp.stops[stopId];
-  }
-
-  function getRegionSummary(progress, diff, region) {
-    var rp = regionProgress(progress, diff, region);
-    var stops = stopsFor(diff);
-    var right = 0;
-    var total = stops.length * QUESTIONS_PER_STOP;
-    var attempts = 0;
-    var bestScore = 0;
-    var completedStops = 0;
-
-    stops.forEach(function (stop) {
-      var rec = rp.stops[stop.id];
-      if (!rec) return;
-      attempts += Number(rec.attempts) || 0;
-      if ((Number(rec.attempts) || 0) > 0) completedStops++;
-      right += Math.max(0, Math.min(QUESTIONS_PER_STOP, Number(rec.bestRight) || 0));
-      bestScore += Math.max(0, Number(rec.bestScore) || 0);
-    });
-
-    var pct = total ? Math.round((right / total) * 100) : 0;
-    var allAttempted = completedStops === stops.length;
-    var threshold = thresholdFor(diff);
-    var passed = allAttempted && pct >= threshold;
-    return {
-      region: region, diff: diff, stopCount: stops.length,
-      completedStops: completedStops, attempts: attempts,
-      right: right, total: total, pct: pct,
-      threshold: threshold, passed: passed,
-      completed: rp.completed === true || passed,
-      bestScore: bestScore
-    };
-  }
-
-  function isRegionUnlocked(progress, diff, region) {
-    var list = regions();
-    var index = list.indexOf(region);
-    if (index < 0) return false;
-    if (index === 0) return true;
-    return getRegionSummary(progress, diff, list[index - 1]).completed;
-  }
-
-  function countCompletedRegions(progress, diff) {
-    return regions().filter(function (region) {
-      return getRegionSummary(progress, diff, region).completed;
-    }).length;
-  }
-
-  function getSelectedDifficulty() {
-    var saved = readProgress();
-    var keys = difficultyKeys();
-    if (keys.indexOf(selectedDifficulty) !== -1) return selectedDifficulty;
-    if (keys.indexOf(saved.selectedDifficulty) !== -1) return saved.selectedDifficulty;
-    return keys.indexOf('normal') !== -1 ? 'normal' : (keys[0] || 'normal');
-  }
-
-  function saveSelectedDifficulty(diff) {
-    var progress = readProgress();
-    if (difficultyKeys().indexOf(diff) === -1) return false;
-    selectedDifficulty = diff;
-    progress.selectedDifficulty = diff;
-    writeProgress(progress);
-    return true;
-  }
-
-  function ensureCampaignDom() {
+  function renderTiers() {
     var api = ui();
-    if (!api || !global.document) return null;
-    var screen = api.el('#screen-campaign');
-    if (!screen) return null;
+    var c = C();
+    var box = api.el('#campaign-tiers');
+    if (!box) return;
+    clear(box);
+    c.tiersOrder().forEach(function (tier) {
+      var unlocked = c.tierUnlocked(tier);
+      var done = unlocked && c.allBossesDone(tier);
+      var fragment = api.cloneTemplate('tpl-choice');
+      var button = fragment && fragment.querySelector ? fragment.querySelector('.bq5-choice') : null;
+      if (!button) {
+        button = global.document.createElement('button');
+        button.className = 'bq5-choice';
+        button.setAttribute('type', 'button');
+        button.setAttribute('role', 'radio');
+      }
+      var title = button.querySelector('.bq5-choice__label');
+      var hint = button.querySelector('.bq5-choice__hint');
+      if (title) title.textContent = tierLabel(tier); else button.textContent = tierLabel(tier);
+      if (hint) hint.textContent = !unlocked ? 'Bloqueada' : (done ? 'Concluída' : '');
+      button.setAttribute('data-action', 'campaign-tier');
+      button.setAttribute('data-value', tier);
+      var selected = tier === S.tier;
+      button.setAttribute('aria-checked', selected ? 'true' : 'false');
+      button.setAttribute('tabindex', selected ? '0' : '-1');
+      if (!unlocked) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); }
+      else { button.disabled = false; button.removeAttribute('aria-disabled'); }
+      box.appendChild(fragment && fragment.querySelector ? fragment : button);
+    });
+    var hintText = '';
+    if (S.tier === 'geografo') hintText = 'Geógrafo: 3 paradas mistas por região, mais o desafio do chefe.';
+    else hintText = '5 paradas (uma por eixo) por região, mais o desafio do chefe.';
+    var next = c.tiersOrder();
+    var locked = next.filter(function (t) { return !c.tierUnlocked(t); });
+    if (locked.length) hintText += ' Conclua os 5 chefes de uma dificuldade para liberar a seguinte.';
+    api.text('#campaign-tier-hint', hintText);
+  }
 
-    var selector = api.el('#campaign-difficulty-wrap');
-    if (!selector) {
-      selector = global.document.createElement('div');
-      selector.id = 'campaign-difficulty-wrap';
-      selector.className = 'bq5-campaign-difficulty';
-      var label = global.document.createElement('label');
-      label.className = 'bq5-label';
-      label.setAttribute('for', 'campaign-difficulty');
-      label.textContent = 'Dificuldade da campanha';
-      var select = global.document.createElement('select');
-      select.id = 'campaign-difficulty';
-      select.className = 'bq5-input';
-      select.setAttribute('aria-label', 'Dificuldade da campanha');
-      selector.appendChild(label);
-      selector.appendChild(select);
-      var head = screen.querySelector('.bq5-screen__head');
-      if (head && head.parentNode) head.parentNode.insertBefore(selector, head.nextSibling);
-      else screen.insertBefore(selector, screen.firstChild);
-    }
+  function bossName(info, region) {
+    // Nomes pendentes de definição editorial não são inventados.
+    return info && info.name ? info.name : ('Chefe de ' + regionLabel(region));
+  }
 
-    var note = api.el('#campaign-difficulty-status');
-    if (!note) {
-      note = global.document.createElement('p');
-      note.id = 'campaign-difficulty-status';
-      note.className = 'bq5-hint';
-      selector.parentNode.insertBefore(note, selector.nextSibling);
-    }
+  function renderRegion(entry, index) {
+    var api = ui();
+    var fragment = api.cloneTemplate('tpl-route-node');
+    var node = fragment && fragment.querySelector ? fragment.querySelector('.bq5-route__node') : null;
+    if (!node) return null;
+    var state = !entry.unlocked ? 'locked' : (entry.bossDone ? 'done' : 'available');
+    node.setAttribute('data-state', state);
+    node.setAttribute('data-region', entry.region);
+    var badge = node.querySelector('.bq5-route__badge');
+    if (badge) badge.textContent = entry.bossDone ? '✓' : String(index + 1);
+    node.querySelector('.bq5-route__name').textContent = entry.label;
+    var bp = entry.bossProgress;
+    node.querySelector('.bq5-route__best').textContent = entry.unlocked
+      ? 'Acertos nas paradas: ' + bp.right + '/' + bp.total
+      : 'Vença o chefe da região anterior';
+    node.querySelector('.bq5-route__state').textContent = state === 'locked' ? 'Bloqueada' : (state === 'done' ? 'Chefe vencido' : 'Disponível');
 
-    var detail = api.el('#campaign-detail');
-    if (!detail) {
-      detail = global.document.createElement('section');
-      detail.id = 'campaign-detail';
-      detail.className = 'bq5-campaign-detail';
-      detail.setAttribute('aria-live', 'polite');
-      var route = api.el('#campaign-route');
-      if (route && route.parentNode) route.parentNode.insertBefore(detail, route.nextSibling);
-      else screen.appendChild(detail);
-    }
+    var card = node.querySelector('.bq5-route__card');
+    var open = entry.unlocked && S.expanded === entry.region;
+    card.setAttribute('data-value', entry.region);
+    card.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (!entry.unlocked) { card.disabled = true; card.setAttribute('aria-disabled', 'true'); }
 
-    var selectNode = api.el('#campaign-difficulty');
-    if (selectNode && !selectNode.__bq5Bound) {
-      selectNode.addEventListener('change', function () {
-        var value = selectNode.value;
-        if (!saveSelectedDifficulty(value)) return;
-        selectedRegion = null;
-        render();
+    var panel = node.querySelector('.bq5-route__points');
+    panel.hidden = !open;
+    if (open) {
+      var list = node.querySelector('.bq5-route__list');
+      entry.points.forEach(function (p) {
+        var pf = api.cloneTemplate('tpl-route-point');
+        var li = pf && pf.querySelector ? pf.querySelector('.bq5-point') : null;
+        if (!li) return;
+        li.setAttribute('data-state', p.best > 0 ? 'done' : 'available');
+        li.querySelector('.bq5-point__name').textContent = p.label;
+        li.querySelector('.bq5-point__best').textContent = p.best + '/' + perPoint();
+        var b = li.querySelector('.bq5-point__btn');
+        b.setAttribute('data-value', p.id);
+        b.setAttribute('aria-label', p.label + ': melhor resultado ' + p.best + ' de ' + perPoint() + ' acertos');
+        list.appendChild(pf);
       });
-      selectNode.__bq5Bound = true;
+      var name = bossName(entry.boss, entry.region);
+      var note = node.querySelector('.bq5-route__boss-note');
+      var problem = entry.boss && entry.boss.problem ? ' — ' + entry.boss.problem : '';
+      var vuln = entry.boss && entry.boss.vulnTheme ? ' Tema vulnerável: ' + themeLabel(entry.boss.vulnTheme) + '.' : '';
+      note.textContent = bp.unlocked
+        ? name + problem + '.' + vuln
+        : name + problem + '. Libera com ' + bp.needed + ' acertos somados nas paradas (você tem ' + bp.right + ').';
+      var boss = node.querySelector('.bq5-route__boss');
+      boss.setAttribute('data-value', entry.region);
+      boss.textContent = entry.bossDone ? 'Desafiar o chefe de novo' : 'Desafio do chefe';
+      if (!bp.unlocked) { boss.disabled = true; boss.setAttribute('aria-disabled', 'true'); }
     }
-    return screen;
+    return fragment;
   }
 
-  function renderDifficultySelector() {
+  function renderMap() {
     var api = ui();
-    if (!api || !global.document) return;
-    var select = api.el('#campaign-difficulty');
-    if (!select) return;
-    var keys = difficultyKeys();
-    var chosen = getSelectedDifficulty();
-    while (select.firstChild) select.removeChild(select.firstChild);
-    keys.forEach(function (key) {
-      var option = global.document.createElement('option');
-      option.value = key;
-      option.textContent = difficultyLabel(key);
-      select.appendChild(option);
-    });
-    select.value = chosen;
-    selectedDifficulty = chosen;
-  }
+    var c = C();
+    if (!c) return { ok: false, code: 'NO_CAMPAIGN' };
+    if (!c.tierUnlocked(S.tier)) S.tier = firstOpenTier();
+    var hub = c.hub(S.tier);
+    renderTiers();
 
-  function appendText(parent, tag, className, value) {
-    var node = global.document.createElement(tag || 'p');
-    if (className) node.className = className;
-    node.textContent = safeText(value);
-    parent.appendChild(node);
-    return node;
-  }
-
-  function renderRegions(progress, diff) {
-    var api = ui();
-    if (!api || !global.document) return;
-    var list = api.el('#campaign-route');
-    if (!list) return;
-    while (list.firstChild) list.removeChild(list.firstChild);
-    var template = api.cloneTemplate('tpl-route-node');
-    var stageList = regions();
-    stageList.forEach(function (region, index) {
-      var summary = getRegionSummary(progress, diff, region);
-      var unlocked = isRegionUnlocked(progress, diff, region);
-      var state = summary.completed ? 'done' : (unlocked ? 'available' : 'locked');
-      var item;
-      if (template && template.querySelector) {
-        item = template.querySelector('.bq5-route__node');
-        if (item) item = item.cloneNode(true);
-      }
-      if (!item) {
-        item = global.document.createElement('li');
-        item.className = 'bq5-route__node';
-        var button = global.document.createElement('button');
-        button.className = 'bq5-route__card';
-        button.type = 'button';
-        item.appendChild(button);
-      }
-      item.setAttribute('data-state', state);
-      item.setAttribute('data-region', region);
-      var badge = item.querySelector('.bq5-route__badge');
-      var buttonNode = item.querySelector('button');
-      var name = item.querySelector('.bq5-route__name');
-      var best = item.querySelector('.bq5-route__best');
-      var label = item.querySelector('.bq5-route__state');
-      if (badge) badge.textContent = summary.completed ? '✓' : String(index + 1);
-      if (name) name.textContent = (config().regionLabels || {})[region] || region;
-      if (best) best.textContent = summary.completedStops + '/' + summary.stopCount + ' pontos · ' + summary.pct + '% de acertos';
-      if (label) label.textContent = summary.completed ? 'Concluída' : (unlocked ? 'Disponível' : 'Bloqueada');
-      if (buttonNode) {
-        buttonNode.setAttribute('data-action', 'campaign-open-region');
-        buttonNode.setAttribute('data-value', region);
-        buttonNode.disabled = !unlocked;
-        buttonNode.setAttribute('aria-label', ((config().regionLabels || {})[region] || region) + (unlocked ? ', abrir região' : ', bloqueada'));
-      }
-      list.appendChild(item);
-    });
-  }
-
-  function renderRegionDetail(progress, diff) {
-    var api = ui();
-    if (!api || !global.document) return;
-    var detail = api.el('#campaign-detail');
-    if (!detail) return;
-    while (detail.firstChild) detail.removeChild(detail.firstChild);
-    if (!selectedRegion) {
-      detail.hidden = true;
-      return;
-    }
-    detail.hidden = false;
-    var label = (config().regionLabels || {})[selectedRegion] || selectedRegion;
-    var summary = getRegionSummary(progress, diff, selectedRegion);
-    appendText(detail, 'h2', 'bq5-section__title', label + ' — pontos temáticos');
-    appendText(detail, 'p', 'bq5-hint', 'Cada ponto tem 10 questões. Para liberar a próxima região, alcance ' + summary.threshold + '% de acertos no conjunto dos pontos desta região. Você pode repetir qualquer ponto; o melhor resultado é preservado.');
-    if (diff === 'geografo') {
-      appendText(detail, 'p', 'bq5-campaign-warning', 'No Geógrafo, o banco regional atual é menor que 30 questões em algumas regiões; por isso, questões podem reaparecer entre pontos diferentes. Não há repetição dentro de uma mesma partida.');
-    }
-    var summaryLine = appendText(detail, 'p', 'bq5-campaign-summary', summary.right + '/' + summary.total + ' acertos · ' + summary.pct + '% · ' + summary.completedStops + '/' + summary.stopCount + ' pontos tentados');
-    if (summary.completed) summaryLine.textContent += ' · Região concluída';
-
-    var grid = global.document.createElement('div');
-    grid.className = 'bq5-campaign-stops';
-    stopsFor(diff).forEach(function (stop, index) {
-      var record = stopProgress(progress, diff, selectedRegion, stop.id);
-      var card = global.document.createElement('button');
-      card.type = 'button';
-      card.className = 'bq5-campaign-stop';
-      card.setAttribute('data-action', 'campaign-start-stop');
-      card.setAttribute('data-value', stop.id);
-      var title = appendText(card, 'span', 'bq5-campaign-stop__title', (index + 1) + '. ' + stop.label);
-      var hint = appendText(card, 'span', 'bq5-campaign-stop__hint', stop.hint);
-      var status = record.attempts > 0
-        ? 'Melhor: ' + record.bestRight + '/' + QUESTIONS_PER_STOP + ' (' + record.bestPct + '%) · ' + record.bestScore + ' pts · ' + record.attempts + ' tentativa(s)'
-        : 'Ainda não realizado';
-      appendText(card, 'span', 'bq5-campaign-stop__status', status);
-      if (record.attempts > 0) card.setAttribute('data-attempted', 'true');
-      if (summary.completed) card.setAttribute('data-region-done', 'true');
-      grid.appendChild(card);
-    });
-    detail.appendChild(grid);
-
-    var back = global.document.createElement('button');
-    back.type = 'button';
-    back.className = 'bq5-btn bq5-btn--ghost bq5-btn--block';
-    back.setAttribute('data-action', 'campaign-back-regions');
-    back.textContent = 'Voltar às regiões';
-    detail.appendChild(back);
-
-    if (summary.completed) {
-      appendText(detail, 'p', 'bq5-campaign-unlocked',
-        'Meta regional alcançada. ' + (regions().indexOf(selectedRegion) < regions().length - 1
-          ? 'A próxima região foi liberada.'
-          : 'Você concluiu as cinco regiões nesta dificuldade.')
-      );
-    } else if (summary.completedStops === summary.stopCount) {
-      appendText(detail, 'p', 'bq5-campaign-warning', 'Você já realizou todos os pontos, mas ainda não alcançou a meta de ' + summary.threshold + '%. Repita os pontos necessários para melhorar seu aproveitamento.');
-    }
-  }
-
-  function render() {
-    var api = ui();
-    if (!api) return { ok: false, code: 'NO_UI' };
-    ensureCampaignDom();
-    renderDifficultySelector();
-    var progress = readProgress();
-    var diff = getSelectedDifficulty();
-    var done = countCompletedRegions(progress, diff);
-    var total = regions().length;
-    var pct = total ? Math.round((done / total) * 100) : 0;
+    var done = 0;
+    hub.regions.forEach(function (r) { if (r.bossDone) done++; });
+    var total = hub.regions.length;
     api.text('#campaign-done', done);
     api.text('#campaign-total', total);
+    api.text('#campaign-lead', 'Dificuldade ' + tierLabel(S.tier) + ': do Norte ao Sul, vença o chefe de cada região.');
     var bar = api.el('#campaign-progress');
     if (bar) {
-      bar.setAttribute('aria-valuenow', String(done));
-      bar.setAttribute('aria-valuetext', done + ' de ' + total + ' regiões concluídas');
-      if (bar.style && typeof bar.style.setProperty === 'function') bar.style.setProperty('--p', String(total ? done / total : 0));
+      var ratio = total ? done / total : 0;
+      bar.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+      if (bar.style && typeof bar.style.setProperty === 'function') bar.style.setProperty('--p', String(ratio));
     }
-    api.text('#campaign-difficulty-status', difficultyLabel(diff) + ' · meta regional: ' + thresholdFor(diff) + '% de acertos. Todos os níveis estão disponíveis nesta versão de teste.');
-    api.text('#campaign-title', 'Campanha');
-    renderRegions(progress, diff);
-    renderRegionDetail(progress, diff);
-    return { ok: true, diff: diff, completedRegions: done, totalRegions: total };
-  }
 
-  function show(region) {
-    var ready = init();
-    if (!ready.ok) return ready;
-    if (region && regions().indexOf(region) !== -1) selectedRegion = region;
-    render();
-    return ui().showScreen('campaign', { history: false, clearHistory: true });
-  }
-
-  function buildPool(region, stop, diff) {
-    var b = bank();
-    if (!b || typeof b.list !== 'function' || typeof b.loaded === 'function' && !b.loaded()) {
-      return { ok: false, code: 'NO_BANK', errors: ['O banco de questões ainda não está carregado.'] };
-    }
-    var all = b.list();
-    if (!Array.isArray(all)) return { ok: false, code: 'BAD_BANK', errors: ['A lista de questões não está disponível.'] };
-    var tiers = config().tiers || {};
-    var allowed = Array.isArray(tiers[diff]) ? tiers[diff] : [];
-    if (!allowed.length) return { ok: false, code: 'BAD_DIFF', errors: ['A dificuldade selecionada não possui níveis de questões configurados.'] };
-
-    function isTarget(q) {
-      return q && q.region === region && (stop.theme === 'all' || q.theme === stop.theme);
-    }
-    var strict = all.filter(function (q) { return isTarget(q) && allowed.indexOf(q.difficulty) !== -1; });
-    if (strict.length >= QUESTIONS_PER_STOP) {
-      return { ok: true, pool: strict, fallback: false, available: strict.length };
-    }
-    // Fallback controlado: mantém região e tema, ampliando apenas a faixa de
-    // dificuldade para não completar a partida com perguntas de outras regiões.
-    var regionalTheme = all.filter(isTarget);
-    if (regionalTheme.length >= QUESTIONS_PER_STOP) {
-      return { ok: true, pool: regionalTheme, fallback: true, available: regionalTheme.length };
-    }
-    return {
-      ok: false, code: 'NOT_ENOUGH_QUESTIONS',
-      errors: ['Este ponto tem apenas ' + regionalTheme.length + ' questões cadastradas nesta região. São necessárias 10 para iniciar.'],
-      available: regionalTheme.length
-    };
-  }
-
-  function installStorageGuard() {
-    var s = storage();
-    if (!s || typeof s.completeStage !== 'function' || originalCompleteStage) return;
-    originalCompleteStage = s.completeStage;
-    s.completeStage = function (region, score) {
-      // O engine legado conclui uma região após qualquer partida de campanha.
-      // Durante um ponto do M12, impedir esse efeito e deixar a meta agregada
-      // do M12 decidir quando a região realmente termina.
-      if (activeRun && activeRun.region === region) {
-        var best = {}; best[region] = Number(score) || 0;
-        return { progress: { done: {}, best: best }, allDone: false };
+    if (!S.expanded || !hub.regions.some(function (r) { return r.region === S.expanded && r.unlocked; })) {
+      var open = null;
+      for (var i = 0; i < hub.regions.length; i++) {
+        if (hub.regions[i].unlocked && !hub.regions[i].bossDone) { open = hub.regions[i].region; break; }
       }
-      return originalCompleteStage.apply(s, arguments);
-    };
-  }
-
-
-  function installEngineStateAdapter() {
-    var e = engine();
-    if (!e || typeof e.state !== 'function' || originalEngineState) return;
-    originalEngineState = e.state;
-    e.state = function () {
-      var snapshot = originalEngineState.apply(e, arguments);
-      if (snapshot && snapshot.mode === 'campaign' && contextRun) {
-        snapshot.diff = contextRun.diff;
-        snapshot.theme = contextRun.theme;
-        snapshot.region = contextRun.region;
-      }
-      return snapshot;
-    };
-  }
-
-  function startStop(region, stopId) {
-    var ready = init();
-    if (!ready.ok) return ready;
-    var diff = getSelectedDifficulty();
-    var progress = readProgress();
-    if (!isRegionUnlocked(progress, diff, region)) {
-      ui().toast('Conclua a região anterior para liberar esta etapa.', 'info');
-      return { ok: false, code: 'REGION_LOCKED' };
-    }
-    var stop = stopsFor(diff).filter(function (item) { return item.id === stopId; })[0];
-    if (!stop) return { ok: false, code: 'BAD_STOP' };
-    if (!engine() || typeof engine().start !== 'function' || !BQ5.screens || !BQ5.screens.play || typeof BQ5.screens.play.show !== 'function') {
-      return { ok: false, code: 'NO_GAME_MODULES' };
-    }
-    var selection = buildPool(region, stop, diff);
-    if (!selection.ok) {
-      ui().toast(selection.errors.join(' '), 'error');
-      return selection;
+      S.expanded = open || (hub.regions[0] && hub.regions[0].unlocked ? hub.regions[0].region : null);
     }
 
-    var b = bank();
-    var c = config();
-    var oldList = b.list;
-    var oldCount = c.campaignQuestionsPerStage;
-    var oldTimeObject = c.questionTimeMs;
-    var oldNormalTime;
-    var requestedTime = c.questionTimeMs && typeof c.questionTimeMs === 'object'
-      ? c.questionTimeMs[diff]
-      : c.questionTimeMs;
-    if (!isInteger(requestedTime) || requestedTime <= 0) requestedTime = c.questionTimeDefaultMs || 15000;
-
-    // A adaptação fica restrita ao início síncrono: o engine copia o quiz e
-    // captura o tempo em G.limitMs antes de as funções/configuração voltarem.
-    try {
-      b.list = function () { return selection.pool.slice(); };
-      c.campaignQuestionsPerStage = QUESTIONS_PER_STOP;
-      if (oldTimeObject && typeof oldTimeObject === 'object') {
-        oldNormalTime = oldTimeObject.normal;
-        oldTimeObject.normal = requestedTime;
-      } else {
-        c.questionTimeMs = requestedTime;
-      }
-      var started = engine().start({ mode: 'campaign', region: region });
-      if (!started || !started.ok) {
-        ui().toast(started && started.errors ? started.errors.join(' ') : 'Não foi possível iniciar o ponto.', 'error');
-        return started || { ok: false, code: 'START_FAILED' };
-      }
-    } finally {
-      b.list = oldList;
-      c.campaignQuestionsPerStage = oldCount;
-      if (oldTimeObject && typeof oldTimeObject === 'object') oldTimeObject.normal = oldNormalTime;
-      else c.questionTimeMs = oldTimeObject;
-    }
-
-    activeRun = {
-      region: region, diff: diff, stopId: stop.id,
-      theme: stop.theme, stopLabel: stop.label,
-      fallback: selection.fallback, startedAt: Date.now()
-    };
-    lastRun = clone(activeRun);
-    contextRun = clone(activeRun);
-    installStorageGuard();
-    installEngineStateAdapter();
-    var shown = BQ5.screens.play.show();
-    if (!shown || shown.ok === false) {
-      if (engine().abort) engine().abort();
-      activeRun = null;
-      return shown || { ok: false, code: 'PLAY_SCREEN_FAILED' };
-    }
-    selectedRegion = region;
-    ui().emit('game:started', {
-      mode: 'campaign', region: region, theme: stop.theme,
-      diff: diff, count: QUESTIONS_PER_STOP, stopId: stop.id
+    var route = api.el('#campaign-route');
+    clear(route);
+    hub.regions.forEach(function (entry, idx) {
+      var f = renderRegion(entry, idx);
+      if (f) route.appendChild(f);
     });
-    if (selection.fallback) {
-      ui().toast('Para completar 10 questões, este ponto usou outras faixas de dificuldade, mantendo região e tema.', 'info');
-    }
-    return { ok: true, game: engine().state(), stop: clone(stop), fallback: selection.fallback };
+    return { ok: true, hub: hub };
   }
 
-  function registerResult(result) {
-    if (!activeRun || !result || result.mode !== 'campaign') return;
-    var run = clone(activeRun);
-    var progress = readProgress();
-    var rec = stopProgress(progress, run.diff, run.region, run.stopId);
-    var right = Math.max(0, Math.min(QUESTIONS_PER_STOP, Number(result.right) || 0));
-    var score = Math.max(0, Number(result.score) || 0);
-    rec.attempts = (Number(rec.attempts) || 0) + 1;
-    rec.lastRight = right;
-    rec.lastScore = score;
-    rec.total = QUESTIONS_PER_STOP;
-    // O melhor resultado é um único registro coerente: uma pontuação maior
-    // substitui também os acertos correspondentes daquela tentativa. Em empate
-    // de pontos, preferimos a tentativa com mais acertos para o corte regional.
-    var previousBestScore = Number(rec.bestScore) || 0;
-    var previousBestRight = Number(rec.bestRight) || 0;
-    if (score > previousBestScore || (score === previousBestScore && right > previousBestRight)) {
-      rec.bestScore = score;
-      rec.bestRight = right;
-      rec.bestPct = Math.round((right / QUESTIONS_PER_STOP) * 100);
-    }
-
-    var summary = getRegionSummary(progress, run.diff, run.region);
-    var rp = regionProgress(progress, run.diff, run.region);
-    var newlyCompleted = summary.passed && rp.completed !== true;
-    if (summary.passed) rp.completed = true;
-    writeProgress(progress);
-
-    // Alimenta também a barra geral do M8 (progresso global, independente da
-    // dificuldade). A fonte detalhada e separada continua sendo a chave M12.
-    if (newlyCompleted && originalCompleteStage && storage()) {
-      try { originalCompleteStage.call(storage(), run.region, summary.bestScore); } catch (ignored) {}
-    }
-
-    result.diff = run.diff;
-    result.theme = run.theme;
-    result.region = run.region;
-    result.campaignStop = { id: run.stopId, label: run.stopLabel, fallback: run.fallback };
-    result.pct = Math.round((right / QUESTIONS_PER_STOP) * 100);
-    result.stage = {
-      region: run.region,
-      done: summary.completed,
-      best: summary.bestScore,
-      allDone: countCompletedRegions(progress, run.diff) === regions().length
-    };
-    lastRun = run;
-    contextRun = run;
-    activeRun = null;
+  function show() {
+    var ready = init();
+    if (!ready.ok) return ready;
+    var c = C();
+    if (!c) { ui().toast('O módulo da campanha não foi carregado.', 'error'); return { ok: false, code: 'NO_CAMPAIGN' }; }
+    if (S.inFight) abortBoss(true);
+    if (!c.tierUnlocked(S.tier)) S.tier = firstOpenTier();
+    var rendered = renderMap();
+    if (!rendered.ok) return rendered;
+    // Vindo do menu, o Voltar retorna ao menu; vindo de resultados/chefe, o histórico é
+    // limpo (o Voltar cai no menu) para nunca apontar para uma tela sem partida ativa.
+    var fromMenu = ui().currentScreen() === 'menu';
+    return fromMenu ? ui().showScreen('campaign') : ui().showScreen('campaign', { history: false, clearHistory: true });
   }
 
-  function resetCampaign() {
+  function selectTier(value) {
+    var c = C();
+    if (!c || c.tiersOrder().indexOf(value) === -1 || !c.tierUnlocked(value)) return { ok: false, code: 'TIER_LOCKED' };
+    S.tier = value;
+    S.expanded = null;
+    return renderMap();
+  }
+
+  function toggleRegion(region) {
+    S.expanded = S.expanded === region ? null : region;
+    if (S.expanded === null) {
+      // permite fechar a região aberta sem reabri-la automaticamente
+      var route = ui().el('#campaign-route');
+      var nodes = route ? ui().all('.bq5-route__node', route) : [];
+      nodes.forEach(function (n) {
+        var panel = n.querySelector('.bq5-route__points');
+        var card = n.querySelector('.bq5-route__card');
+        if (panel) panel.hidden = true;
+        if (card) card.setAttribute('aria-expanded', 'false');
+      });
+      return { ok: true };
+    }
+    return renderMap();
+  }
+
+  function resetTier() {
     var api = ui();
-    if (!api) return { ok: false, code: 'NO_UI' };
     api.openModal({
       title: 'Recomeçar campanha?',
-      message: 'Todo o progresso regional desta campanha será apagado em todas as dificuldades.',
+      message: 'O progresso da dificuldade ' + tierLabel(S.tier) + ' (paradas e chefes) será apagado. Recorde do modo solo e histórico não são afetados. Esta ação não pode ser desfeita.',
       cancelLabel: 'Cancelar',
       confirmLabel: 'Recomeçar',
       onConfirm: function () {
-        var progress = defaultProgress();
-        progress.selectedDifficulty = getSelectedDifficulty();
-        writeProgress(progress);
-        if (storage() && typeof storage().resetCampaign === 'function') storage().resetCampaign();
-        selectedRegion = null;
-        render();
-        api.toast('Progresso da campanha reiniciado.', 'success');
-        api.closeModal();
+        C().reset(S.tier);
+        S.expanded = null;
+        renderMap();
+        api.toast('Progresso da dificuldade ' + tierLabel(S.tier) + ' reiniciado.', 'success');
       }
     });
+  }
+
+  // ---------- paradas temáticas ----------
+
+  function findPoint(pointId) {
+    var region = String(pointId || '').split(':')[0];
+    var list = C().pointsForRegion(region, S.tier);
+    for (var i = 0; i < list.length; i++) if (list[i].id === pointId) return { region: region, point: list[i] };
+    return null;
+  }
+
+  function startPoint(pointId) {
+    var api = ui();
+    var c = C();
+    var e = engine();
+    if (!c || !e) return { ok: false, code: 'NO_MODULES' };
+    var found = findPoint(pointId);
+    if (!found) { api.toast('Parada desconhecida.', 'error'); return { ok: false, code: 'BAD_POINT' }; }
+    if (!c.tierUnlocked(S.tier) || !c.regionUnlocked(found.region, S.tier)) {
+      api.toast('Esta região ainda está bloqueada.', 'error');
+      return { ok: false, code: 'REGION_LOCKED' };
+    }
+    var started = e.stage({ region: found.region, theme: found.point.theme, tier: S.tier });
+    if (!started || !started.ok) {
+      api.toast(started && started.errors && started.errors.length ? started.errors.join(' ') : 'Não foi possível iniciar a parada.', 'error');
+      return started || { ok: false, code: 'STAGE_FAILED' };
+    }
+    var play = BQ5.screens && BQ5.screens.play;
+    if (!play || typeof play.show !== 'function') {
+      if (typeof e.abort === 'function') e.abort();
+      api.toast('A tela de partida ainda não foi carregada.', 'error');
+      return { ok: false, code: 'NO_PLAY_SCREEN' };
+    }
+    var shown = play.show();
+    if (!shown || shown.ok === false) {
+      if (typeof e.abort === 'function') e.abort();
+      api.toast('Não foi possível abrir a parada.', 'error');
+      return shown || { ok: false, code: 'PLAY_SCREEN_FAILED' };
+    }
+    S.point = { region: found.region, tier: S.tier, id: pointId, theme: found.point.theme };
+    api.emit('game:started', { mode: 'stage', theme: found.point.theme, diff: S.tier, region: found.region, count: perPoint() });
+    return { ok: true, game: started.game };
+  }
+
+  // Chamado por results.replay() quando o resultado atual é de uma parada.
+  function replayPoint() {
+    if (!S.point) { ui().toast('Nenhuma parada para repetir.', 'info'); return { ok: false, code: 'NO_POINT' }; }
+    S.tier = S.point.tier;
+    return startPoint(S.point.id);
+  }
+
+  // A tela de partida emite game:finished com o MESMO objeto que depois entrega
+  // aos resultados; aqui registramos a parada (regra de melhor resultado = campaign)
+  // e anexamos o bloco "stage" para que results mostre o contexto da campanha.
+  function onGameFinished(result) {
+    if (!result || result.mode !== 'stage' || !S.point || !C()) return;
+    var p = S.point;
+    var rec = C().recordStage(p.region, p.tier, p.id, result);
+    if (!rec || !rec.ok) {
+      ui().toast('Não foi possível salvar o resultado da parada.', 'error');
+      return;
+    }
+    var bp = rec.bossUnlocked;
+    var text = 'Melhor resultado nesta parada: ' + rec.point.best + ' de ' + perPoint() + ' acertos' + (rec.replaced ? ' (novo melhor!)' : '') + '. ';
+    text += bp.unlocked
+      ? 'Desafio do chefe liberado!'
+      : 'Chefe: ' + bp.right + ' de ' + bp.needed + ' acertos somados para liberar.';
+    result.stage = { region: p.region, done: false, best: rec.point.best, allDone: false, title: 'Parada concluída', text: text };
+    result.region = p.region;
+    result.diff = p.tier;
+    result.theme = p.theme;
+  }
+
+  // ---------- desafio do chefe ----------
+
+  function stopTimer() {
+    if (S.timerId !== null && typeof global.clearInterval === 'function') global.clearInterval(S.timerId);
+    S.timerId = null;
+  }
+
+  function startTimer() {
+    stopTimer();
+    if (typeof global.setInterval === 'function') S.timerId = global.setInterval(tick, 100);
+  }
+
+  function startBoss(region) {
+    var api = ui();
+    var c = C();
+    if (!c) return { ok: false, code: 'NO_CAMPAIGN' };
+    var bp = c.bossUnlockProgress(region, S.tier);
+    if (!bp.unlocked) { api.toast('O desafio do chefe ainda não foi liberado.', 'error'); return { ok: false, code: 'BOSS_LOCKED' }; }
+    var res = c.startBoss(region, S.tier);
+    if (!res || !res.ok) {
+      api.toast(res && res.errors && res.errors.length ? res.errors.join(' ') : 'Não foi possível iniciar o desafio.', 'error');
+      return res || { ok: false, code: 'BOSS_FAILED' };
+    }
+    S.inFight = true;
+    S.selected = null;
+    S.lastOutcome = null;
+    var opened = api.showScreen('boss', { history: false, clearHistory: true });
+    api.hidden('#bq5-back', true);
+    if (!opened || opened.ok === false) { c.abortFight(); S.inFight = false; return opened || { ok: false, code: 'SCREEN_FAILED' }; }
+    renderBoss(res.fight);
+    startTimer();
+    return { ok: true, fight: res.fight };
+  }
+
+  function abortBoss(silent) {
+    stopTimer();
+    if (C()) C().abortFight();
+    S.inFight = false;
+    S.fightPhase = null;
+    S.selected = null;
+    if (!silent) show();
     return { ok: true };
   }
 
-  function backToRegions() {
-    selectedRegion = null;
-    return render();
+  function quitBoss() {
+    ui().openModal({
+      title: 'Sair do desafio?',
+      message: 'Sair descarta esta luta e o checkpoint temporário: na próxima entrada o chefe volta a 100% do HP. O progresso salvo da campanha não é apagado. Não existe pausa: o relógio da pergunta continua correndo enquanto esta confirmação estiver aberta.',
+      cancelLabel: 'Continuar lutando',
+      confirmLabel: 'Sair do desafio',
+      onConfirm: function () { abortBoss(false); }
+    });
   }
 
-  function returnToMap() {
-    var region = lastRun && lastRun.region ? lastRun.region : selectedRegion;
-    selectedRegion = region || null;
-    return show(selectedRegion);
+  function setPhase(phase) {
+    S.fightPhase = phase;
+    var screen = ui().el('#screen-boss');
+    if (screen) screen.setAttribute('data-phase', phase);
   }
 
-  function replayLastStop() {
-    if (!lastRun) return { ok: false, code: 'NO_CAMPAIGN_STAGE' };
-    return startStop(lastRun.region, lastRun.stopId);
+  function renderBars(f) {
+    var api = ui();
+    api.text('#boss-player-hp', Math.round(f.playerHp));
+    api.text('#boss-player-max', Math.round(f.playerMax));
+    api.text('#boss-boss-hp', Math.round(f.bossHp));
+    api.text('#boss-boss-max', Math.round(f.bossMax));
+    setMeter('#boss-player-bar', f.playerMax ? f.playerHp / f.playerMax : 0);
+    setMeter('#boss-boss-bar', f.bossMax ? f.bossHp / f.bossMax : 0);
+    api.text('#boss-strike-count', f.strike);
   }
+
+  function renderHand(f, interactive) {
+    var api = ui();
+    var buttons = api.all('.bq5-boss__card', api.el('#boss-hand'));
+    buttons.forEach(function (b, i) {
+      var card = f.hand[i];
+      if (!card) { b.hidden = true; return; }
+      b.hidden = false;
+      var theme = b.querySelector('.bq5-boss__card-theme');
+      var note = b.querySelector('.bq5-boss__card-note');
+      if (theme) theme.textContent = themeLabel(card.theme);
+      if (note) note.textContent = card.vulnerable ? 'Tema vulnerável: +0,5 de dano' : '';
+      b.setAttribute('data-theme', card.theme);
+      b.setAttribute('data-vulnerable', card.vulnerable ? 'true' : 'false');
+      b.setAttribute('data-state', card.revealed ? 'chosen' : (interactive ? 'open' : 'closed'));
+      b.disabled = !interactive;
+      b.setAttribute('aria-label', 'Carta ' + (i + 1) + ': ' + themeLabel(card.theme) + (card.vulnerable ? ' (tema vulnerável)' : ''));
+    });
+  }
+
+  function renderOptions(question, interactive) {
+    var api = ui();
+    var options = api.all('.bq5-option', api.el('#boss-options'));
+    options.forEach(function (b, i) {
+      var text = b.querySelector('.bq5-option__text');
+      if (text) text.textContent = question && question.o[i] != null ? String(question.o[i]) : '';
+      b.disabled = !interactive;
+      b.removeAttribute('data-state');
+      b.setAttribute('aria-pressed', 'false');
+      b.setAttribute('aria-label', OPTION_LABELS[i] + ': ' + (question ? question.o[i] : ''));
+    });
+  }
+
+  function currentQuestion(f) {
+    for (var i = 0; i < f.hand.length; i++) if (f.hand[i].revealed && f.hand[i].question) return f.hand[i].question;
+    return null;
+  }
+
+  function setBossButtons(opts) {
+    var api = ui();
+    api.hidden('#boss-confirm', !opts.confirm);
+    api.hidden('#boss-retry', !opts.retry);
+    api.hidden('#boss-finish', !opts.finish);
+    var confirm = api.el('#boss-confirm');
+    if (confirm) confirm.disabled = !!opts.confirmDisabled;
+  }
+
+  function renderBoss(f) {
+    var api = ui();
+    if (!f) return;
+    var info = f.boss || {};
+    api.text('#boss-title', bossName(info, f.region));
+    api.text('#boss-name', bossName(info, f.region));
+    api.text('#boss-problem', (info.problem ? info.problem + ' · ' : '') + regionLabel(f.region) + ' · ' + tierLabel(f.tier)
+      + (info.vulnTheme ? ' · Vulnerável: ' + themeLabel(info.vulnTheme) : ''));
+    renderBars(f);
+
+    var box = api.el('#boss-question-box');
+    var opts = api.el('#boss-options');
+    var fb = api.el('#boss-feedback');
+    var end = api.el('#boss-end');
+
+    if (f.over) {
+      setPhase('over');
+      api.hidden('#boss-hand', true);
+      if (box) box.hidden = true;
+      if (opts) opts.hidden = true;
+      api.hidden('#boss-end', false);
+      end.setAttribute('data-outcome', f.over);
+      if (f.over === 'win') {
+        api.text('#boss-end-title', 'Vitória!');
+        api.text('#boss-end-text', 'Você derrotou ' + bossName(info, f.region) + '. Conclua para salvar o progresso e liberar a próxima região.');
+        setBossButtons({ finish: true });
+      } else {
+        var cp = f.checkpointHit ? ' O chefe recomeça em ' + f.checkpointPct + '% do HP (checkpoint desta sequência).' : ' O chefe recomeça com o HP cheio.';
+        api.text('#boss-end-title', 'Você foi derrotado');
+        api.text('#boss-end-text', 'Seu HP chegou a zero.' + cp);
+        setBossButtons({ retry: true });
+      }
+      api.text('#boss-message', '');
+      return;
+    }
+
+    api.hidden('#boss-end', true);
+    var phase = f.phase;
+    setPhase(phase);
+
+    if (phase === 'choosing') {
+      api.hidden('#boss-hand', false);
+      renderHand(f, true);
+      if (box) box.hidden = true;
+      if (opts) opts.hidden = true;
+      api.hidden('#boss-feedback', true);
+      api.text('#boss-message', 'Escolha uma carta: você vê só o tema; a pergunta aparece depois.' + (f.checkpointHit ? ' Checkpoint ativo.' : ''));
+      setBossButtons({});
+    } else if (phase === 'revealing' || phase === 'answering') {
+      api.hidden('#boss-hand', false);
+      renderHand(f, false);
+      var q = currentQuestion(f);
+      if (box) box.hidden = false;
+      if (opts) opts.hidden = false;
+      api.hidden('#boss-feedback', true);
+      api.text('#boss-question', q ? q.txt : '');
+      renderOptions(q, false);
+      setBossButtons({ confirm: true, confirmDisabled: true });
+      api.text('#boss-message', 'Leia a pergunta — o tempo começa em instantes.');
+    } else if (phase === 'gap') {
+      api.text('#boss-message', 'Preparando a próxima mão…');
+    }
+  }
+
+  function selectCard(index) {
+    var c = C();
+    if (!S.inFight || S.fightPhase !== 'choosing') return { ok: false, code: 'BAD_PHASE' };
+    var res = c.selectCard(index);
+    if (!res || !res.ok) {
+      ui().toast(res && res.errors ? res.errors.join(' ') : 'Não foi possível escolher a carta.', 'error');
+      return res || { ok: false };
+    }
+    var now = Date.now();
+    S.revealEndAt = now + (isInt(bossCfg().revealDelayMs) ? bossCfg().revealDelayMs : 3000);
+    S.answerEndAt = S.revealEndAt + res.fight.limitMs;
+    S.selected = null;
+    renderBoss(res.fight);
+    tick();
+    return res;
+  }
+
+  function selectAnswer(index) {
+    if (!S.inFight || S.fightPhase !== 'answering' || !isInt(index) || index < 0 || index > 3) return false;
+    S.selected = index;
+    var api = ui();
+    api.all('.bq5-option', api.el('#boss-options')).forEach(function (b, i) {
+      if (i === index) { b.setAttribute('data-state', 'selected'); b.setAttribute('aria-pressed', 'true'); }
+      else { b.removeAttribute('data-state'); b.setAttribute('aria-pressed', 'false'); }
+    });
+    setBossButtons({ confirm: true, confirmDisabled: false });
+    return true;
+  }
+
+  function submit(choice) {
+    var api = ui();
+    var c = C();
+    if (!S.inFight || (S.fightPhase !== 'answering' && S.fightPhase !== 'revealing')) return { ok: false, code: 'BAD_PHASE' };
+    var f0 = c.fightSnapshot();
+    var q = f0 ? currentQuestion(f0) : null;
+    var res = c.answer(choice);
+    if (!res || !res.ok) {
+      if (res && res.code === 'TOO_EARLY') return res;
+      api.toast(res && res.errors ? res.errors.join(' ') : 'Não foi possível registrar a resposta.', 'error');
+      return res || { ok: false };
+    }
+    // revela gabarito
+    var buttons = api.all('.bq5-option', api.el('#boss-options'));
+    buttons.forEach(function (b, i) {
+      b.disabled = true;
+      if (q && i === q.a) b.setAttribute('data-state', 'correct');
+      else if (!res.timedOut && i === choice) b.setAttribute('data-state', 'wrong');
+      else b.setAttribute('data-state', 'dimmed');
+    });
+    var fb = api.el('#boss-feedback');
+    if (fb) {
+      fb.hidden = false;
+      fb.setAttribute('data-kind', res.timedOut ? 'timeout' : (res.correct ? 'correct' : 'wrong'));
+    }
+    api.text('#boss-feedback-title', res.timedOut ? 'Tempo esgotado!' : (res.correct ? 'Acerto!' : 'Errou.'));
+    var line = res.correct
+      ? 'Você causou ' + Math.round(res.dealtToBoss) + ' de dano ao chefe. Sequência: ' + res.strike + '.'
+      : 'Você perdeu ' + Math.round(res.dealtToPlayer) + ' de HP. A sequência foi zerada.';
+    if (q && !res.correct) line += ' Resposta correta: ' + q.o[q.a] + '.';
+    if (q && q.e) line += ' ' + q.e;
+    api.text('#boss-feedback-text', line);
+    api.emit('sfx:play', { cue: res.correct ? 'correct' : (res.timedOut ? 'timeout' : 'wrong') });
+    S.selected = null;
+    renderBars(res.fight);
+    setBossButtons({ confirm: false });
+    if (res.over) {
+      stopTimer();
+      // mantém a pergunta/feedback visíveis por um instante só no estado final: mostra o painel final por cima
+      renderBoss(res.fight);
+      api.hidden('#boss-feedback', false);
+    } else {
+      setPhase('gap');
+      api.text('#boss-message', 'Próxima mão em instantes…');
+    }
+    return res;
+  }
+
+  function confirm() {
+    if (S.selected === null) return { ok: false, code: 'NO_SELECTION' };
+    return submit(S.selected);
+  }
+
+  function retry() {
+    var res = C().retry();
+    if (!res || !res.ok) {
+      ui().toast(res && res.errors ? res.errors.join(' ') : 'Não foi possível reiniciar a luta.', 'error');
+      return res || { ok: false };
+    }
+    S.selected = null;
+    ui().hidden('#boss-feedback', true);
+    renderBoss(res.fight);
+    startTimer();
+    return res;
+  }
+
+  function finish() {
+    var res = C().completeFight();
+    if (!res || !res.ok) {
+      ui().toast(res && res.errors ? res.errors.join(' ') : 'Não foi possível concluir o desafio.', 'error');
+      return res || { ok: false };
+    }
+    stopTimer();
+    S.inFight = false;
+    S.fightPhase = null;
+    var r = res.result;
+    var msg = r.allDone
+      ? 'Dificuldade ' + tierLabel(r.tier) + ' concluída! Todos os chefes foram vencidos.'
+      : (r.nextRegion ? 'Região desbloqueada: ' + regionLabel(r.nextRegion) + '.' : 'Região concluída.');
+    ui().toast(msg, 'success');
+    S.expanded = r.nextRegion || null;
+    show();
+    return res;
+  }
+
+  // Relógio da luta: a UI só observa; as regras estão em campaign.js.
+  function tick() {
+    if (!S.inFight) return;
+    var c = C();
+    var f = c.fightSnapshot();
+    if (!f || f.over) { stopTimer(); return; }
+    var api = ui();
+    var now = Date.now();
+
+    if (f.phase === 'revealing' || f.phase === 'answering') {
+      if (S.fightPhase === 'revealing') {
+        if (now < S.revealEndAt) {
+          var wait = Math.ceil((S.revealEndAt - now) / 1000);
+          api.text('#boss-time-left', Math.round(f.limitMs / 1000) + ' s');
+          setMeter('#boss-timer', 1);
+          api.text('#boss-message', 'Leia a pergunta — o tempo começa em ' + wait + ' s.');
+          return;
+        }
+        // fim da pausa de revelação: libera as alternativas e inicia o relógio da resposta
+        api.all('.bq5-option', api.el('#boss-options')).forEach(function (b) { b.disabled = false; });
+        setPhase('answering');
+        api.text('#boss-message', 'Selecione uma alternativa e confirme.');
+      }
+      if (S.fightPhase === 'answering') {
+        var remaining = Math.max(0, S.answerEndAt - now);
+        var ratio = f.limitMs > 0 ? remaining / f.limitMs : 0;
+        var timer = api.el('#boss-timer');
+        var secs = Math.ceil(remaining / 1000);
+        if (timer) {
+          timer.setAttribute('data-level', ratio < 0.2 ? 'danger' : (ratio < 0.5 ? 'warn' : 'ok'));
+          timer.setAttribute('aria-label', 'Tempo restante: ' + secs + ' segundos');
+        }
+        setMeter('#boss-timer', ratio);
+        api.text('#boss-time-left', secs + ' s');
+        if (remaining <= 0) submit(-1); // tempo esgotado
+      }
+      return;
+    }
+
+    if (f.phase === 'gap') {
+      var left = c.remainingMs();
+      if (left !== null && left <= 0) {
+        var next = c.nextHand();
+        if (next && next.ok) {
+          S.selected = null;
+          api.hidden('#boss-feedback', true);
+          renderBoss(next.fight);
+        }
+      }
+    }
+  }
+
+  // ---------- inicialização ----------
 
   function bindActions() {
     var api = ui();
     unsubscribers.push(api.on('intent:campaign', function () { show(); }));
-    unsubscribers.push(api.onAction('campaign-open-region', function (detail) {
-      var region = detail && detail.value;
-      if (!region) return;
-      var progress = readProgress();
-      if (!isRegionUnlocked(progress, getSelectedDifficulty(), region)) {
-        api.toast('Esta região ainda está bloqueada.', 'info');
-        return;
-      }
-      selectedRegion = region;
-      render();
-    }));
-    unsubscribers.push(api.onAction('campaign-start-stop', function (detail) {
-      if (!selectedRegion || !detail || !detail.value) return;
-      startStop(selectedRegion, detail.value);
-    }));
-    unsubscribers.push(api.onAction('campaign-back-regions', backToRegions));
-    unsubscribers.push(api.onAction('campaign-reset', resetCampaign));
-    unsubscribers.push(api.on('game:finished', registerResult));
-    unsubscribers.push(api.on('results:campaign', returnToMap));
-    unsubscribers.push(api.on('results:replay', replayLastStop));
+    unsubscribers.push(api.on('results:campaign', function () { show(); }));
+    unsubscribers.push(api.on('game:finished', onGameFinished));
+    unsubscribers.push(api.onAction('campaign-tier', function (d) { selectTier(d.value); }));
+    unsubscribers.push(api.onAction('campaign-stage', function (d) { toggleRegion(d.value); }));
+    unsubscribers.push(api.onAction('campaign-point', function (d) { startPoint(d.value); }));
+    unsubscribers.push(api.onAction('campaign-boss', function (d) { startBoss(d.value); }));
+    unsubscribers.push(api.onAction('campaign-reset', resetTier));
+    unsubscribers.push(api.onAction('boss-card', function (d) { selectCard(Number(d.value)); }));
+    unsubscribers.push(api.onAction('boss-confirm', confirm));
+    unsubscribers.push(api.onAction('boss-quit', quitBoss));
+    unsubscribers.push(api.onAction('boss-retry', retry));
+    unsubscribers.push(api.onAction('boss-finish', finish));
     unsubscribers.push(api.on('screen:change', function (detail) {
       if (!detail) return;
-      if (detail.from === 'play' && detail.to !== 'play' && detail.to !== 'results') {
-        // Ao abandonar uma partida, o M10 chama engine.abort(); não persistir
-        // progresso parcial e liberar o estado de execução do adaptador.
-        activeRun = null;
-        contextRun = null;
-      }
-      if (detail.from === 'results' && detail.to !== 'play') contextRun = null;
+      // Outro módulo trocou a tela durante a luta: descarta a luta (sem persistir).
+      if (S.inFight && detail.from === 'boss' && detail.to !== 'boss') abortBoss(true);
     }));
+    var options = api.el('#boss-options');
+    if (options && options.addEventListener) {
+      options.addEventListener('click', function (event) {
+        var target = event && event.target;
+        if (!target) return;
+        if (target.nodeType === 3) target = target.parentElement;
+        var button = target && target.closest ? target.closest('.bq5-option[data-index]') : null;
+        if (!button || button.disabled) return;
+        selectAnswer(Number(button.getAttribute('data-index')));
+      });
+    }
   }
 
   function init() {
     if (initialized) return { ok: true, alreadyInitialized: true };
-    if (!ui() || typeof ui().on !== 'function' || typeof ui().onAction !== 'function') return { ok: false, code: 'NO_UI' };
-    installStorageGuard();
-    installEngineStateAdapter();
+    if (!ui() || typeof ui().onAction !== 'function') return { ok: false, code: 'NO_UI' };
     bindActions();
-    ensureCampaignDom();
     initialized = true;
     return { ok: true };
   }
@@ -692,16 +725,25 @@
   var Campaign = {
     init: init,
     show: show,
-    render: render,
-    startStop: startStop,
-    getProgress: readProgress,
-    getStops: stopsFor,
-    getRegionSummary: function (region, diff) { return getRegionSummary(readProgress(), diff || getSelectedDifficulty(), region); },
-    isRegionUnlocked: function (region, diff) { return isRegionUnlocked(readProgress(), diff || getSelectedDifficulty(), region); },
-    selectedDifficulty: getSelectedDifficulty,
-    selectDifficulty: saveSelectedDifficulty,
-    thresholdFor: thresholdFor,
-    reset: resetCampaign
+    render: renderMap,
+    selectTier: selectTier,
+    startPoint: startPoint,
+    replayPoint: replayPoint,
+    startBoss: startBoss,
+    selectCard: selectCard,
+    selectAnswer: selectAnswer,
+    confirm: confirm,
+    tick: tick,
+    state: function () {
+      return { tier: S.tier, expanded: S.expanded, inFight: S.inFight, fightPhase: S.fightPhase, point: S.point ? { region: S.point.region, tier: S.point.tier, id: S.point.id } : null };
+    },
+    destroy: function () {
+      stopTimer();
+      unsubscribers.forEach(function (off) { if (typeof off === 'function') off(); });
+      unsubscribers = [];
+      initialized = false;
+      return { ok: true };
+    }
   };
 
   BQ5.screens = BQ5.screens || {};

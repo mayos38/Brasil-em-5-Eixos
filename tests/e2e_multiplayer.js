@@ -50,7 +50,7 @@ async function connect(host, guest, theme) {
   await host.waitForFunction(() => document.querySelector('#mp-host-code').value.startsWith('BQ5-'), null, { timeout: 15000 });
   const offer = await host.inputValue('#mp-host-code');
   await host.click('#mp-host-qr-toggle');
-  const hostQrReady = await host.locator('#mp-host-qr-panel svg').count() === 1 && await host.locator('#mp-host-qr-panel').isVisible();
+  const hostQrReady = await host.locator('#mp-host-qr-panel img, #mp-host-qr-panel svg').count() === 1 && await host.locator('#mp-host-qr-panel').isVisible();
   check('QR suplementar: anfitrião exibe QR sem substituir código manual', hostQrReady && await host.inputValue('#mp-host-code') === offer);
   await host.click('#mp-host-qr-toggle');
   await guest.click('#mp-role [data-value="join"]');
@@ -59,7 +59,7 @@ async function connect(host, guest, theme) {
   await guest.waitForFunction(() => document.querySelector('#mp-join-code').value.startsWith('BQ5-'), null, { timeout: 15000 });
   const answer = await guest.inputValue('#mp-join-code');
   await guest.click('#mp-join-qr-toggle');
-  const guestQrReady = await guest.locator('#mp-join-qr-panel svg').count() === 1 && await guest.locator('#mp-join-qr-panel').isVisible();
+  const guestQrReady = await guest.locator('#mp-join-qr-panel img, #mp-join-qr-panel svg').count() === 1 && await guest.locator('#mp-join-qr-panel').isVisible();
   check('QR suplementar: convidado exibe QR da resposta e mantém o texto', guestQrReady && await guest.inputValue('#mp-join-code') === answer);
   await guest.click('#mp-join-qr-toggle');
   await host.fill('#mp-host-answer', answer);

@@ -76,6 +76,39 @@
     return p;
   };
 
+  // MÓDULO 12 — Progresso da campanha v2, por tier de dificuldade:
+  // { tiers: { [tier]: { points: { [pointId]: {score, maxRight} },
+  //                     bosses: { [regiao]: true } } } }
+  // pointId = "<regiao>:<tema>" (tiers padrão) ou "<regiao>:mix<n>" (Geógrafo).
+  // score = melhor pontuação do ponto (substituída por maior, regra de nova
+  // tentativa); maxRight = maior total de acertos já obtido no ponto.
+  S.defaultCampaignV2 = function () { return { tiers: {} }; };
+
+  S.getCampaignV2 = function () {
+    const v = S.getJSON(keys().campaignV2 || 'bq5_campaign_v2', S.defaultCampaignV2());
+    if (!v || typeof v !== 'object' || typeof v.tiers !== 'object') return S.defaultCampaignV2();
+    const out = { tiers: {} };
+    Object.keys(v.tiers).forEach(function (tier) {
+      const t = v.tiers[tier] || {};
+      out.tiers[tier] = {
+        points: (t.points && typeof t.points === 'object') ? t.points : {},
+        bosses: (t.bosses && typeof t.bosses === 'object') ? t.bosses : {}
+      };
+    });
+    return out;
+  };
+
+  S.saveCampaignV2 = function (v) { S.setJSON(keys().campaignV2 || 'bq5_campaign_v2', v); };
+
+  // Zera o progresso de um tier da campanha v2 (ou todos, sem argumento).
+  // Não afeta recorde solo nem a campanha legada.
+  S.resetCampaignV2 = function (tier) {
+    const v = S.getCampaignV2();
+    if (tier) delete v.tiers[tier]; else v.tiers = {};
+    S.saveCampaignV2(v);
+    return v;
+  };
+
   globalThis.BQ5 = globalThis.BQ5 || {};
   BQ5.storage = S;
 })();

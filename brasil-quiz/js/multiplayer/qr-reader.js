@@ -28,7 +28,21 @@
 
   var BQ5 = global.BQ5 = global.BQ5 || {};
 
-  var VENDOR_SRC = 'js/vendor/jsQR.min.js';
+  // O jsQR fica em js/vendor/, irmã de js/multiplayer/. O caminho é calculado a
+  // partir do endereço DESTE script (e não da página), para funcionar mesmo que
+  // o jogo seja aberto por outra URL/HTML. Se não der, cai no relativo à página.
+  var VENDOR_SRC = (function () {
+    var fallback = 'js/vendor/jsQR.min.js';
+    try {
+      var doc = global.document;
+      var current = doc && doc.currentScript;
+      if (!current && doc && doc.querySelector) current = doc.querySelector('script[src*="qr-reader.js"]');
+      if (current && current.src && typeof global.URL === 'function') {
+        return new global.URL('../vendor/jsQR.min.js', current.src).href;
+      }
+    } catch (error) { /* usa o caminho relativo */ }
+    return fallback;
+  })();
   var LIVE_SAMPLE_MAX = 800;          // maior lado da amostra analisada ao vivo (px)
   var FILE_SIZES = [1600, 1000, 2400]; // tentativas para fotos (maior lado, px)
   var SCAN_INTERVAL_MS = 280;         // pausa entre análises (não é loop contínuo)

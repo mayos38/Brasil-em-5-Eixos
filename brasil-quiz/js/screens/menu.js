@@ -78,9 +78,7 @@
     api.text('#menu-progress-text', data.stagesTotal > 0
       ? 'Campanha: ' + data.stagesDone + ' de ' + data.stagesTotal + ' regiões concluídas'
       : 'Progresso da campanha ficará disponível quando os dados forem carregados.');
-    api.text('#menu-bank-info', data.bankLoaded
-      ? 'Banco carregado: ' + data.bankCount.toLocaleString('pt-BR') + ' questões disponíveis.'
-      : 'Aguardando o carregamento do banco de questões.');
+    /* Alpha #4: a contagem do banco saiu do menu principal (mantida na API readProfileData). */
     setProgressBar(data);
 
     return { ok: true, profile: data };

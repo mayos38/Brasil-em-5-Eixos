@@ -13,13 +13,15 @@ function check(label, condition) {
   if (condition) { passed++; console.log('PASS ' + label); }
   else { failed++; console.log('FAIL ' + label); }
 }
-const sample = qr.encode('BQ5-O-THIS_IS_A_TEST_STRING_1234567890');
+const sample = qr.encode('BQ5-O-THIS_IS_A_TEST_STRING_1234567890', { level: 'M' });
 const matrixString = sample.matrix.map(row => row.map(cell => cell ? '1' : '0').join('')).join('\n');
 const digest = crypto.createHash('sha256').update(matrixString).digest('hex');
 check('QR sample: version and matrix size', sample.version === 3 && sample.matrix.length === 29);
 check('QR sample: stable matrix matches reference vector', digest === 'a485ea5d35eb37a255fbd68dfaefd607f674995d0f0e141251b20ba78304df91');
 check('QR sample: matrix contains only boolean modules', sample.matrix.every(row => row.length === 29 && row.every(v => typeof v === 'boolean')));
-const large = qr.encode('BQ5-A-' + 'A'.repeat(900));
+const large = qr.encode('BQ5-A-' + 'A'.repeat(900), { level: 'M' });
+const lowL = qr.encode('BQ5-A-' + 'A'.repeat(900));
+check('QR nível L (padrão): versão menor ou igual à do nível M', lowL.correction === 'L' && lowL.version <= large.version && lowL.version < large.version);
 check('QR long payload: larger version generated', large.version > sample.version && large.matrix.length === large.version * 4 + 17);
 let unicodeRejected = false;
 try { qr.encode('BQ5-ç'); } catch (e) { unicodeRejected = /caracteres/.test(e.message); }

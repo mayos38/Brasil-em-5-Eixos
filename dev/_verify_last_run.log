@@ -1,0 +1,56 @@
+
+== A) Checagens estÃ¡ticas ==
+  PASS dev/integrated-preview.html existe
+  PASS dev/integrated-preview.js existe
+  PASS HTML carrega integrated-preview.js
+  PASS HTML liga o CSS real (../brasil-quiz/css/style.css)
+  PASS index.html declara scripts <script src>
+  PASS ordem de dependÃªncia configâ†’utilâ†’storageâ†’bankâ†’engineâ†’ui em index.html
+  PASS todos os scripts do index.html resolvem para arquivos reais a partir de /dev/
+  PASS banco real questions.json carrega com 508 questÃµes
+
+== B) Fluxo completo em V8 real (mÃ³dulos reais M1â€“M12 + bootstrap do preview) ==
+  PASS B1a banco real carregado via fetch stub (508 questÃµes)
+  PASS B1b menu exibido automaticamente apÃ³s o boot
+  PASS B1c aÃ§Ã£o retry-boot registrada (listener Ãºnico do preview)
+  PASS T1 engine: tempo esgotado vale 0 pontos (regra real do motor)
+  PASS F1 menu -> configuraÃ§Ã£o (intent:solo)
+  PASS F2 seleÃ§Ã£o de eixo (cultura) e dificuldade (primeira do config)
+  PASS F3 inÃ­cio da partida solo via setup.start()
+  PASS F4 responde todas as questÃµes com pontuaÃ§Ã£o real (base + bÃ´nus de tempo)
+  PASS F5 resultados exibidos e estatÃ­sticas consistentes
+  PASS F6 histÃ³rico persistido via storage (chave real do results.js)
+  PASS F7 retorno ao menu a partir dos resultados
+  PASS F9 menu -> tela de campanha (action:go-campaign, como o botÃ£o real dispara)
+  PASS F10 tela de campanha renderiza dados reais do hub() do M12 (tier inicial edu)
+  PASS F8 recorde solo persistido (bq5_best_solo)
+
+== C) Servidor HTTP local â€” caminhos reais respondem 200 ==
+  PASS todos os recursos usados pelo preview respondem 200
+
+== RESUMO ==
+9/9 verificaÃ§Ãµes passaram
+TODAS AS VERIFICAÃ‡Ã•ES PASSARAM
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /dev/integrated-preview.html HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/data/questions.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/config.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/util.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/storage.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/bank.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/engine.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/screens/menu.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/screens/setup.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/screens/play.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/screens/results.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/hp.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/multiplayer/lan.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/multiplayer/qr.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/multiplayer/qr-reader.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/multiplayer/local.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/multiplayer/alt.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/campaign.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /brasil-quiz/js/screens/campaign-ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 02:13:13] "GET /dev/ui-preview.js HTTP/1.1" 200 -

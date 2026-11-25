@@ -161,6 +161,13 @@
     return true;
   };
 
+  /**
+   * M12 — Embaralha as alternativas de uma questão do banco preservando a
+   * associação correta (mesma regra interna do motor, exposta para os
+   * módulos de campanha/chefe montarem suas próprias cartas).
+   */
+  E.instantiateQuestion = function (q) { return instantiate(q); };
+
   /** Tempo atual segundo o relógio ativo (ms). */
   E.now = function () { return clock(); };
 
@@ -245,6 +252,117 @@
       locked: false,
       limitMs: timeFor(diff),
       tEnd: clock() + timeFor(diff),
+      lastChoice: -1,
+      finished: false,
+      result: null
+    };
+    return { ok: true, game: E.state() };
+  };
+
+  /**
+   * MÓDULO 12 — Inicia uma rodada de PONTO DE PARADA da campanha v2
+   * (ponto temático ou ponto misturado do Geógrafo). Mesmas regras do motor
+   * para o fluxo da questão (alternativas embaralhadas, sem repetição na
+   * rodada, pontuação pointsBase + bônus de tempo, relógio injetável), com
+   * pool por prioridade conforme GDD v1.1 §5 (paradas mistas usam os cinco eixos):
+   *   com tema : região+tema+tier → fallback regional (mesma região e tier,
+   *              outros temas)
+   *   sem tema : região+tier
+   * NUNCA cruza dificuldade nem outra região para completar a parada.
+   * Se o pool + fallback não fornecerem `count` questões => NO_QUESTIONS
+   * estruturado (a sessão incompleta nunca inicia).
+   * A persistência da rodada NÃO é feita aqui: o módulo BQ5.campaign
+   * registra o resultado (regra de nova tentativa / desbloqueio do chefe).
+   *
+   * opts: { region OBRIGATÓRIO, theme 'all'|tema, tier chave de config.tiers,
+   *          count inteiro >= 1 (padrão config.campaignV2.questionsPerPoint) }
+   * Retorna { ok:true, game } ou erro com codes:
+   * NO_BANK | BAD_REGION | BAD_TIER | BAD_THEME | BAD_COUNT | NO_QUESTIONS.
+   */
+  E.stage = function (opts) {
+    var o = opts || {};
+    if (!bank() || !bank().loaded() || bank().count() === 0) {
+      return { ok: false, code: 'NO_BANK', errors: ['banco de questões não carregado — use BQ5.bank.load()/adopt()/fromText() antes'] };
+    }
+
+    var c = cfg();
+    var region = o.region || null;
+    if (!region || (c.regions || []).indexOf(region) === -1) {
+      return { ok: false, code: 'BAD_REGION', errors: ['ponto de parada exige uma região válida de config.regions'] };
+    }
+
+    var tier = o.tier || null;
+    if (!tier || !(c.tiers || {})[tier]) {
+      return { ok: false, code: 'BAD_TIER', errors: ['dificuldade desconhecida no config.tiers: ' + tier] };
+    }
+
+    var theme = o.theme === undefined ? 'all' : o.theme;
+    if (theme !== 'all' && (c.themes || []).indexOf(theme) === -1) {
+      return { ok: false, code: 'BAD_THEME', errors: ['tema desconhecido no config: ' + theme] };
+    }
+
+    var count = o.count !== undefined ? o.count : ((c.campaignV2 && isInt(c.campaignV2.questionsPerPoint) && c.campaignV2.questionsPerPoint > 0)
+      ? c.campaignV2.questionsPerPoint : 10);
+    if (!isInt(count) || count < 1) {
+      return { ok: false, code: 'BAD_COUNT', errors: ['count deve ser inteiro >= 1'] };
+    }
+
+    var tierDs = (c.tiers || {})[tier] || [];
+    var all = bank().list();
+    var inTier = function (q) { return tierDs.indexOf(q.difficulty) !== -1; };
+    // GDD v1.1 §5: prioridade região+eixo+dificuldade; se não completar, SOMENTE
+    // o fallback regional já implementado no projeto (mesma região e tier,
+    // outros temas). Sem pool suficiente => erro estruturado.
+    var seen = Object.create(null);
+    var candidates = [];
+    if (theme === 'all') {
+      // GDD v1.1 §2/§5 — paradas mistas "usam os cinco eixos": começa com 1
+      // questão de cada eixo que tenha conteúdo na região+tier e completa com o
+      // restante do pool regional embaralhado. Nunca outra região.
+      var regionPool = shuffle(all.filter(function (q) { return q.region === region && inTier(q); }));
+      var takenTheme = Object.create(null);
+      for (var i0 = 0; i0 < regionPool.length; i0++) {
+        if (!takenTheme[regionPool[i0].theme]) { takenTheme[regionPool[i0].theme] = true; candidates.push(regionPool[i0]); }
+      }
+      var rest = [];
+      for (var i1 = 0; i1 < regionPool.length; i1++) if (candidates.indexOf(regionPool[i1]) === -1) rest.push(regionPool[i1]);
+      candidates = shuffle(candidates).concat(shuffle(rest)); // representantes dos eixos primeiro
+    } else {
+      var stages = [
+        function (q) { return q.region === region && q.theme === theme && inTier(q); },
+        function (q) { return q.region === region && inTier(q); }
+      ];
+      for (var s = 0; candidates.length < count && s < stages.length; s++) {
+        var pick = all.filter(function (q) { return !seen[q.id] && stages[s](q); });
+        for (var i = 0; i < pick.length; i++) { seen[pick[i].id] = true; candidates.push(pick[i]); }
+      }
+    }
+
+    if (candidates.length < count) {
+      var lbl = theme === 'all' ? ('região ' + region) : ('região ' + region + ', tema ' + theme);
+      return { ok: false, code: 'NO_QUESTIONS', errors: [
+        'banco não fornece ' + count + ' questões para a parada (' + lbl +
+        ', tier ' + tier + '); disponíveis: ' + candidates.length +
+        '. Sem substituição por outra região ou dificuldade (GDD v1.1 §5).'
+      ] };
+    }
+
+    var ordered = theme === 'all' ? candidates : shuffle(candidates);
+    var quiz = ordered.slice(0, count).map(instantiate);
+
+    G = {
+      mode: 'stage',
+      theme: theme,
+      diff: tier,
+      region: region,
+      quiz: quiz,
+      i: 0,
+      score: 0,
+      right: 0,
+      review: [],
+      locked: false,
+      limitMs: timeFor(tier),
+      tEnd: clock() + timeFor(tier),
       lastChoice: -1,
       finished: false,
       result: null

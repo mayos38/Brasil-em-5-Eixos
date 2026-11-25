@@ -34,3 +34,27 @@ Update alpha #2: Atualização de UI/UX.
 - O modo solo teve sua organização dos botões alterada para facilitar a jogabilidade.
 
 Status: Implementado com sucesso, dia 19-11-2026; antes da última entrada no Progress.md.
+
+Update alpha #3: Campanha v2 (M12) concluída.
+
+- Implementado o modo campanha v2 conforme a GDD "campanha v1.1": etapas temáticas e mistas por região e dificuldade, chefes regionais com HP, strike consecutivo, vulnerabilidade de tema, checkpoint de sequência e nova tentativa; progresso gravado em chave própria do storage (não interfere no recorde solo).
+- Ajustes finais: relógio da revelação (pausa de 3 s + tempo SOLO do tier) e validação da resposta antes de qualquer mudança de fase (erros não alteram o estado).
+
+Status: Implementado, dia 24-11-2026; suíte dedicada tests/run_campaign.py 26/26 em V8 real (checkpoint cp-30).
+
+Update alpha #4: tela de campanha no menu, fontes e preview integrado.
+
+- O botão "A campanha" do menu principal agora abre a tela real da campanha (módulo 12): seleção de dificuldade na própria tela (Educativo, Normal, Difícil e Geógrafo), rota com as etapas de cada região e meta do chefe, e reinício do progresso com confirmação.
+- Novas fontes de interface: Pixelify Sans (textos) e Silkscreen (títulos e botões), carregadas via Google Fonts no index.html; aplicadas também ao preview integrado de desenvolvimento.
+- O layout 2x2 do menu foi removido por enquanto (a ideia está preservada, não descartada); a contagem de questões deixou de aparecer no menu principal.
+- Corrigida a causa raiz do "módulo 12 não funciona no dev integrated preview": o validador lia um nome inexistente do harness de testes (__tests__) e a seção de fluxo nunca era executada — agora ela roda em V8 real e passa por completo.
+
+Status: Implementado, dia 25-11-2026; verificação do preview integrado 9/9 em V8 real e regressão verde (checkpoint cp-32).
+
+## Alpha #4 — correções pós-cp-32 (2026-11-25)
+- Modo campanha completo: tela do chefe com cartas, duelo e retorno à rota; pontos da rota avançam a campanha.
+- Fontes Pixelify Sans e Silkscreen agora com assets locais verificados + licenças OFL em assets/fonts (@font-face local; Google Fonts segue como fallback online).
+- Painel QR do multiplayer com nome acessível no input de arquivo; contrato de UI atualizado para as novas telas/ações.
+
+### M5.5 alinhado à paleta atual (2026-11-25)
+- A identidade visual agora documenta a paleta real do produto (oliva-escura + dourado), encerrando a divergência registrada.

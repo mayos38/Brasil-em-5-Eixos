@@ -4,16 +4,18 @@
  *
  * Responsabilidade (bootstrap provisório do Módulo 15, apenas para testes):
  *   1. Busca a interface REAL (brasil-quiz/index.html) via fetch — sem cópias;
- *   2. Injeta o conteúdo real no documento e executa os módulos reais na ordem
- *      de dependência (js/config.js → util → storage → bank → engine → ui → telas);
+ *   2. Injeta o conteúdo real no documento (body E links do head, ex.: Google
+ *      Fonts) e executa os módulos reais na ordem declarada em index.html
  *   3. Tela boot: data-state="loading" durante a carga do banco;
  *   4. Carrega o banco REAL data/questions.json via BQ5.bank.load();
  *   5. Sucesso -> BQ5.screens.menu.show() (menu aparece automaticamente);
  *      Falha   -> #screen-boot[data-state="error"] com detalhes, ação retry-boot
  *                 e importação manual opcional via BQ5.bank.fromText.
  *
+ * Carrega TODOS os <script src> declarados em index.html — incluindo o módulo 12
+ * (js/campaign.js + js/screens/campaign.js) quando estão ativos.
  * NÃO reimplementa motor, regras, pontuação, cronômetro, telas ou persistência.
- * Sem pausa (não existe no projeto). Sem M12–M14. Sem async/await.
+ * Sem pausa (não existe no projeto). Sem async/await.
  * ============================================================ */
 (function (global) {
   'use strict';
@@ -58,7 +60,10 @@
       return Promise.resolve({ ok: false, code: 'NO_FETCH', errors: ['fetch() não está disponível neste navegador/contexto.'] });
     }
     var p;
-    try { p = global.fetch(SHELL_URL); } catch (e) {
+    // cache:'no-store': o preview deve SEMPRE refletir o index.html atual em disco.
+    // Sem isso, um HTML antigo em cache do navegador (ex.: sem as tags <script>
+    // do módulo 12) impede que novos módulos carreguem no preview.
+    try { p = global.fetch(SHELL_URL, { cache: 'no-store' }); } catch (e) {
       return Promise.resolve({ ok: false, code: 'FETCH', errors: [String((e && e.message) || e)] });
     }
     if (!p || typeof p.then !== 'function') return Promise.resolve({ ok: false, code: 'FETCH', errors: ['fetch() não retornou uma Promise'] });
@@ -99,6 +104,45 @@
         continue; // a página dev já tem o próprio <noscript>
       } else {
         try { doc.body.appendChild(node); } catch (e3) {} // move para o documento vivo
+      }
+    }
+
+    // Alpha #4: os links do <head> da interface real também precisam chegar à
+    // página de preview — sem isso, as fontes Google Fonts (Pixelify Sans +
+    // Silkscreen) só funcionariam abrindo o index.html diretamente.
+    var pHead = parsed && parsed.head;
+    if (pHead && pHead.childNodes) {
+      // Dedupe por URL ABSOLUTA: o index.html declara 'css/style.css' (relativo
+      // a /brasil-quiz/) e esta página já liga '../brasil-quiz/css/style.css';
+      // comparar strings cruas injetaria um <link> quebrado (/dev/css/…).
+      function absHref(h) {
+        if (!h) return h;
+        try { if (global.URL && doc.baseURI) return new global.URL(String(h), doc.baseURI).href; } catch (e10) {}
+        return String(h);
+      }
+      var existing = {};
+      var docLinks = (doc.querySelectorAll ? doc.querySelectorAll('link') : []);
+      for (var k = 0; k < docLinks.length; k++) {
+        var eh = null; try { eh = docLinks[k].getAttribute('href'); } catch (e6) {}
+        if (eh) existing[absHref(eh)] = true;
+      }
+      var totalL = pHead.childNodes.length;
+      for (var m = 0; m < totalL; m++) {
+        var ln = pHead.childNodes[m];
+        if (!ln || ln.nodeType !== 1 || !/^link$/i.test(ln.nodeName)) continue;
+        var href = null, rel = '';
+        try { href = ln.getAttribute('href'); rel = String(ln.getAttribute('rel') || ''); } catch (e7) {}
+        var tokens = rel.split(/\s+/);
+        var hrefKey = absHref(href);
+        if (!href || existing[hrefKey] || (tokens.indexOf('stylesheet') === -1 && tokens.indexOf('preconnect') === -1)) continue;
+        // dedupe: ex.: style.css já é carregado pela própria página de preview
+        var copy = doc.createElement('link');
+        for (var a = 0; a < ln.attributes.length; a++) {
+          var attr = ln.attributes[a];
+          try { copy.setAttribute(attr.name, attr.value); } catch (e8) {}
+        }
+        (doc.head || doc.body).appendChild(copy);
+        existing[hrefKey] = true;
       }
     }
 

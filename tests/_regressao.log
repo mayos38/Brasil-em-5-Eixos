@@ -1,0 +1,9 @@
+run_campaign.py        rc=0 fails=0 |   import pkg_resources
+run_ui_menu.py         rc=0 fails=0 |   import pkg_resources
+run_ui_structure.py    rc=1 fails=19 | RESULT: FAIL
+run_bank.py            rc=0 fails=0 |   import pkg_resources
+run_engine.py          rc=0 fails=0 |   import pkg_resources
+run_setup_play.py      rc=0 fails=0 |   import pkg_resources
+run_results_v8.py      rc=0 fails=0 |   import pkg_resources
+run_storage.py         rc=0 fails=0 |   import pkg_resources
+RESULTADO: 1 SUITE(S) COM PROBLEMA

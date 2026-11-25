@@ -10,7 +10,9 @@
  *   - Estados dinâmicos vêm de atributos data-* / aria-* (contrato em
  *     docs/UI_CONTRACT.md); JS não escreve estilo inline, exceto --p e --c.
  *   - Sem fontes/imagens externas: só fontes do sistema e formas em CSS.
- *   - Identidade PROVISÓRIA (navy + amarelo): trocar a paleta = editar :root.
+*     (exceção alpha #4: TTFs locais em assets/fonts via @font-face + Google Fonts
+*      via <link> no index.html — nunca URL remota direto neste arquivo.)
+ *   - Identidade atual (oliva-escura + dourado, materializada no M6 — ver docs/IDENTIDADE_VISUAL.md); trocar a paleta = editar :root.
  * ============================================================ */
 
 /* ---------- 1. TOKENS ---------- */
@@ -26,7 +28,8 @@
   --bq5-surface-1: #252C1C;
   --bq5-surface-2: #343D27;
   --bq5-border: #536044;             /* divisórias decorativas */
-  --bq5-border-strong: #7183A6;      /* contorno de controles, contraste >= 3:1 */
+  --bq5-border-strong: #7587AA;      /* contorno de controles, contraste >= 3:1 */
+  --bq5-white: #FFFFFF;
   --bq5-text-primary: #F2F0E5;
   --bq5-text-secondary: #E3B65C;
 
@@ -63,8 +66,11 @@
   --bq5-region-sudeste: #4E8FD1;
   --bq5-region-sul: #A78BFA;
 
-  /* tipografia: fontes locais/sistema; corpo >= 16px */
-  --bq5-font: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  /* tipografia (alpha #4): Pixelify Sans para textos/interface e Silkscreen
+     para títulos/botões/elementos curtos (Google Fonts via <link> no index.html);
+     fallbacks locais/sistema preservados. */
+  --bq5-font: "Pixelify Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --bq5-font-display: "Silkscreen", var(--bq5-font);
   --bq5-font-mono: Consolas, "SF Mono", ui-monospace, Menlo, monospace;
   --bq5-fs-xs: 0.8125rem;
   --bq5-fs-sm: 0.875rem;
@@ -139,6 +145,8 @@ code {
   border-radius: var(--bq5-r-sm);
 }
 :focus-visible { outline: 2px solid var(--bq5-focus); outline-offset: 2px; }
+/* Alpha #4 — fonte de exibição (Silkscreen) em títulos, botões e elementos curtos. */
+.bq5-brand__name, .bq5-screen__title, .bq5-section__title, .bq5-btn, .bq5-menu__item, .bq5-choice { font-family: var(--bq5-font-display); }
 .bq5-num { font-family: var(--bq5-font-mono); font-variant-numeric: tabular-nums; }
 .bq5-sr {
   position: absolute !important;
@@ -1035,9 +1043,10 @@ code {
 @media (min-width: 40rem) {
   .bq5-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .bq5-options { grid-template-columns: 1fr 1fr; }
-  .bq5-menu { grid-template-columns: 1fr 1fr; }
 }
 
+/* Alpha #4: o layout 2x2 do menu foi removido — a ideia não está descartada;
+   reativar .bq5-menu em duas colunas quando for retomado. */
 @media (min-width: 48rem) {
   :root {
     --bq5-w-app: 60rem;
@@ -1056,8 +1065,6 @@ code {
   }
 
   .bq5-options { grid-template-columns: 1fr 1fr; }
-  .bq5-menu { grid-template-columns: 1fr 1fr; }
-  .bq5-menu__item:first-child { grid-column: 1 / -1; }
 }
 
 /* TELAS COM ALTURA ATÉ 760px */
@@ -1477,28 +1484,26 @@ code {
 .bq5-mpqr-panel[hidden] { display: none; }
 .bq5-mpqr-panel .bq5-section__title { margin: 0; text-align: center; }
 .bq5-mpqr-image {
-  width: min(100%, 320px);
-  aspect-ratio: 1;
-  padding: 10px;
-  border-radius: 10px;
-  background: #ffffff;
-  color: #000000;
-  color-scheme: only light;
+  /* O QR precisa de preto puro sobre branco puro, sempre. As quatro linhas
+     abaixo impedem que o "modo escuro" de navegadores (ex.: Samsung Internet)
+     escureça o fundo/os módulos e deixe o código cinza. */
+  color-scheme: light;
   forced-color-adjust: none;
   filter: none;
+  -webkit-filter: none;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  width: min(100%, 440px);
+  aspect-ratio: 1;
+  padding: 0;               /* a margem silenciosa de 4 módulos já está dentro da imagem */
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bq5-white);
   box-shadow: var(--bq5-shadow-1);
 }
-.bq5-mpqr-image svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: #ffffff;
-  color: #000000;
-  color-scheme: only light;
-  forced-color-adjust: none;
-  filter: none;
-  shape-rendering: crispEdges;
-}
+.bq5-mpqr-image img { display: block; max-width: none; image-rendering: pixelated; image-rendering: crisp-edges; filter: none; }
+.bq5-mpqr-image svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; color-scheme: light; }
 .bq5-mpscanner-video {
   display: block;
   width: 100%;
@@ -1616,3 +1621,61 @@ code {
 .bq5-altmsg__title { font-size: var(--bq5-fs-2xl, 2rem); font-weight: 900; }
 .bq5-altmsg[data-kind="go"] .bq5-altmsg__title { color: var(--bq5-primary); }
 .bq5-altmsg__sub { color: var(--bq5-text-secondary); }
+
+/* ---------- MÓDULO 12: mapa da campanha e desafio do chefe ---------- */
+.bq5-route__node { align-items: start; }
+.bq5-route__body { display: grid; gap: var(--bq5-sp-2); min-width: 0; }
+.bq5-route__points { display: grid; gap: var(--bq5-sp-2); padding: var(--bq5-sp-3); background: var(--bq5-surface-1); border: 1px solid var(--bq5-border); border-left: 4px solid var(--c, var(--bq5-primary)); border-radius: var(--bq5-r-md); }
+.bq5-route__list { display: grid; gap: var(--bq5-sp-2); }
+.bq5-point { display: block; }
+.bq5-point__btn { display: flex; align-items: center; justify-content: space-between; gap: var(--bq5-sp-3); width: 100%; min-height: var(--bq5-tap); padding: var(--bq5-sp-2) var(--bq5-sp-3); text-align: left; background: var(--bq5-surface-2); border: 1px solid var(--bq5-border-strong); border-radius: var(--bq5-r-sm); transition: transform var(--bq5-dur-fast) var(--bq5-ease), border-color var(--bq5-dur-fast); }
+.bq5-point[data-state="done"] .bq5-point__btn { border-color: var(--bq5-success); }
+.bq5-point[data-state="done"] .bq5-point__best { color: var(--bq5-success); }
+.bq5-point__btn:active { transform: scale(0.98); }
+.bq5-point__btn:focus-visible { outline: 3px solid var(--bq5-focus); outline-offset: 2px; }
+@media (hover: hover) { .bq5-point__btn:hover { border-color: var(--c, var(--bq5-primary)); } }
+.bq5-point__name { font-family: var(--bq5-font-display); }
+.bq5-point__best { color: var(--bq5-text-secondary); font-size: var(--bq5-fs-sm); }
+.bq5-route__boss-note { overflow-wrap: anywhere; }
+.bq5-route__boss { margin-top: var(--bq5-sp-1); }
+
+.bq5-meter--danger .bq5-meter__fill { background: var(--bq5-error); }
+.bq5-boss__bars { gap: var(--bq5-sp-3); }
+.bq5-boss__bar { display: grid; gap: var(--bq5-sp-1); }
+.bq5-boss__bar .bq5-meter { height: 0.75rem; }
+.bq5-boss__label { display: flex; flex-wrap: wrap; gap: var(--bq5-sp-1); align-items: baseline; font-size: var(--bq5-fs-sm); font-family: var(--bq5-font-display); }
+.bq5-boss__hand { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--bq5-sp-2); }
+.bq5-boss__card { display: grid; align-content: center; justify-items: center; gap: var(--bq5-sp-1); min-height: 5.5rem; padding: var(--bq5-sp-2); text-align: center; background: var(--bq5-surface-2); border: 2px solid var(--bq5-border-strong); border-radius: var(--bq5-r-md); transition: transform var(--bq5-dur-fast) var(--bq5-ease), border-color var(--bq5-dur-fast); }
+.bq5-boss__card-theme { font-family: var(--bq5-font-display); font-size: var(--bq5-fs-sm); overflow-wrap: anywhere; }
+.bq5-boss__card-note { font-size: var(--bq5-fs-xs); color: var(--bq5-warning); }
+.bq5-boss__card[data-vulnerable="true"] { border-color: var(--bq5-warning); }
+.bq5-boss__card[data-state="chosen"] { border-color: var(--bq5-primary); background: var(--bq5-surface-1); }
+.bq5-boss__card:disabled:not([data-state="chosen"]) { opacity: 0.55; }
+.bq5-boss__card:active:not(:disabled) { transform: scale(0.97); }
+.bq5-boss__card:focus-visible { outline: 3px solid var(--bq5-focus); outline-offset: 2px; }
+@media (hover: hover) { .bq5-boss__card:hover:not(:disabled) { border-color: var(--bq5-primary); } }
+#boss-end[data-outcome="win"] .bq5-card__title { color: var(--bq5-success); }
+#boss-end[data-outcome="loss"] .bq5-card__title { color: var(--bq5-error); }
+.bq5-actionbar > [hidden] { display: none; }
+
+/* Alpha #4 — fontes locais (assets verificados do Google Fonts, licença OFL na mesma pasta).
+   Declaradas após o <link> do index.html: quando os arquivos existem, prevalecem sobre a web;
+   sem eles, o fallback continua sendo Google Fonts + sistema. */
+@font-face {
+  font-family: "Pixelify Sans";
+  src: url("../assets/fonts/PixelifySans-Variable.ttf") format("truetype");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Silkscreen";
+  src: url("../assets/fonts/Silkscreen-Regular.ttf") format("truetype");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Arte de eixos (js/art.js): imagem gerada dinamicamente */
+.bq5-art__image { display: block; max-width: 100%; height: auto; }
+.bq5-art__image--cover { width: 100%; height: 100%; object-fit: cover; }

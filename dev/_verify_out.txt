@@ -1,0 +1,58 @@
+C:\projeto quiz brasil\tools\deps\py_mini_racer\py_mini_racer.py:13: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+
+== A) Checagens estáticas ==
+  PASS dev/integrated-preview.html existe
+  PASS dev/integrated-preview.js existe
+  PASS HTML carrega integrated-preview.js
+  PASS HTML liga o CSS real (../brasil-quiz/css/style.css)
+  PASS index.html declara scripts <script src>
+  PASS ordem de dependência config→util→storage→bank→engine→ui em index.html
+  PASS todos os scripts do index.html resolvem para arquivos reais a partir de /dev/
+  PASS banco real questions.json carrega com 508 questões
+
+== B) Fluxo completo em V8 real (módulos reais M1–M12 + bootstrap do preview) ==
+  PASS B1a banco real carregado via fetch stub (508 questões)
+  PASS B1b menu exibido automaticamente após o boot
+  PASS B1c ação retry-boot registrada (listener único do preview)
+  PASS T1 engine: tempo esgotado vale 0 pontos (regra real do motor)
+  PASS F1 menu -> configuração (intent:solo)
+  PASS F2 seleção de eixo (cultura) e dificuldade (primeira do config)
+  PASS F3 início da partida solo via setup.start()
+  PASS F4 responde todas as questões com pontuação real (base + bônus de tempo)
+  PASS F5 resultados exibidos e estatísticas consistentes
+  PASS F6 histórico persistido via storage (chave real do results.js)
+  PASS F7 retorno ao menu a partir dos resultados
+  PASS F9 menu -> tela de campanha (action:go-campaign, como o botão real dispara)
+  PASS F10 tela de campanha renderiza dados reais do hub() do M12 (tier inicial edu)
+  PASS F8 recorde solo persistido (bq5_best_solo)
+
+== C) Servidor HTTP local — caminhos reais respondem 200 ==
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /dev/integrated-preview.html HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/data/questions.json HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/config.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/util.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/storage.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/bank.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/engine.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/screens/menu.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/screens/setup.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/screens/play.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/screens/results.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/hp.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/multiplayer/lan.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/multiplayer/qr.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/multiplayer/qr-reader.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/multiplayer/local.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/multiplayer/alt.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/campaign.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /brasil-quiz/js/screens/campaign.js HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 07:24:08] "GET /dev/ui-preview.js HTTP/1.1" 200 -
+  PASS todos os recursos usados pelo preview respondem 200
+
+== RESUMO ==
+9/9 verificações passaram
+TODAS AS VERIFICAÇÕES PASSARAM

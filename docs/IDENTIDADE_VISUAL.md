@@ -1,7 +1,7 @@
 # IDENTIDADE VISUAL PROVISÓRIA — Brasil em 5 Eixos
 
 > **Status: identidade visual provisória, planejada no Módulo 5.5 e materializada parcialmente no Módulo 6.**
-> Esta proposta não substitui o visual do protótipo original: evolui a paleta navy + amarelo e a tipografia `system-ui` já existentes em `brasil-quiz-prototipo.html`.
+> Esta proposta não substitui o visual do protótipo original: evolui a paleta oliva-escura com dourado e a tipografia `system-ui` já existentes em `brasil-quiz-prototipo.html`.
 > A identidade será reavaliada durante os testes do primeiro Beta. Não se considera definitiva antes dessa validação.
 >
 > Nenhuma interface comercial foi copiada. As referências abaixo são princípios de hierarquia, linguagem cartográfica e legibilidade, não reproduções de produtos de terceiros.
@@ -30,27 +30,27 @@
 
 ## 2. Paleta de cores
 
-Tema escuro "noite cartográfica", em continuidade ao protótipo (`#0A1220`, `#FFD23F`). Os valores abaixo são a referência da identidade. Os tokens CSS equivalentes são definidos em `brasil-quiz/css/style.css`.
+Tema escuro "noite botânica (oliva)", em continuidade ao protótipo (materializada no M6 como paleta oliva-escura + dourado). Os valores abaixo são a referência da identidade. Os tokens CSS equivalentes são definidos em `brasil-quiz/css/style.css`.
 
 ### Cores estruturais
 
 | Token conceitual | HEX | Papel | Contraste de referência |
 |---|---|---|---:|
-| `bg` | `#0A1220` | Fundo principal | — |
-| `surface-1` | `#182440` | Cartões e painéis | texto primário: 13,7:1 |
-| `surface-2` | `#233252` | Superfície elevada / hover / áreas internas | — |
-| `border` | `#2C3D66` | Divisórias e bordas decorativas | — |
-| `text-primary` | `#EEF2FB` | Texto principal | sobre bg: 16,7:1 |
-| `text-secondary` | `#93A1BD` | Legendas e metadados não essenciais | sobre bg: 7,2:1 |
+| `bg` | `#171B12` | Fundo principal | — |
+| `surface-1` | `#252C1C` | Cartões e painéis | texto primário: 12,6:1 |
+| `surface-2` | `#343D27` | Superfície elevada / hover / áreas internas | — |
+| `border` | `#536044` | Divisórias e bordas decorativas | — |
+| `text-primary` | `#F2F0E5` | Texto principal | sobre bg: 15,3:1 |
+| `text-secondary` | `#E3B65C` | Legendas e metadados não essenciais | sobre bg: 9,2:1 |
 
-A implementação M6 acrescenta `border-strong` (`#7183A6`) para contornos de controles que precisam ser mais perceptíveis. Essa cor é derivada para acessibilidade e não substitui a cor decorativa `border`.
+A implementação M6 acrescenta `border-strong` (`#7587AA`) para contornos de controles que precisam ser mais perceptíveis. Essa cor é derivada para acessibilidade e não substitui a cor decorativa `border`.
 
 ### Marca e ações
 
 | Token conceitual | HEX | Papel | Contraste de referência |
 |---|---|---|---:|
-| `primary` | `#FFD23F` | Ação primária e destaques pontuais | sobre bg: 13,0:1 |
-| `primary-ink` | `#0A1220` | Texto/ícone sobre primary | sobre primary: 13,0:1 |
+| `primary` | `#E3B65C` | Ação primária e destaques pontuais | sobre bg: 9,2:1 |
+| `primary-ink` | `#0A1220` | Texto/ícone sobre primary | sobre primary: 9,6:1 |
 
 ### Estados de feedback
 

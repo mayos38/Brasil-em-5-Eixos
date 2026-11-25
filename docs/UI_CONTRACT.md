@@ -13,7 +13,7 @@ Este documento descreve a estrutura e os estados visuais que os módulos futuros
 3. Não usar `onclick` inline, inserir texto do banco como HTML, nem escrever cores diretamente no JavaScript.
 4. O banco atual contém **508 questões**, mas a quantidade é dinâmica. A interface deve ler a contagem por meio da API real de `bank.js`; nunca fixar `508` no código.
 5. O produto possui cinco eixos selecionáveis: **Cultura, Economia, Animais, Vegetação e Cidades**. Clima é subtópico associado a Vegetação, não um sexto eixo.
-6. A identidade visual é provisória e segue `docs/IDENTIDADE_VISUAL.md`. O CSS não carrega imagens, fontes ou outros recursos remotos.
+6. A identidade visual é provisória e segue `docs/IDENTIDADE_VISUAL.md`. O CSS não carrega imagens, fontes ou outros recursos remotos — **exceção registrada (alpha #4)**: as fontes de interface *Pixelify Sans* e *Silkscreen* são carregadas via `<link>` do Google Fonts no `<head>` do `index.html` (com preconnects); o CSS continua sem `@import`/`url()` remoto.
 7. O layout começa em 320 px, mantém alvos de toque mínimos de 48 px e respeita `prefers-reduced-motion`.
 8. O Módulo 9 coleta configuração; o Módulo 10 apresenta o jogo; `engine.js` continua sendo a autoridade de sorteio, respostas, pontuação, tempo e persistência. `bank.js` continua sendo a autoridade sobre disponibilidade e dados.
 9. **Regra obrigatória: não implementar pausa de partida.** Não criar botão, ação, estado, evento, atalho, API ou fluxo de pausa/retomada; não congelar o cronômetro por modal, troca de aba, `visibilitychange` ou perda de foco. Sair abandona a partida por `engine.abort()`. Esta restrição é permanente para os próximos LLMs, salvo mudança explícita de requisito pelo usuário.
@@ -73,16 +73,14 @@ Os eventos são delegados por `ui.js` a partir de um ancestral estável. Não cr
 | `retry-boot` | Tentar novamente o carregamento inicial. |
 | `go-solo` | Abrir configuração solo. |
 | `go-campaign` | Abrir a campanha. |
+| `campaign-tier` | Escolher a dificuldade da campanha pelo `data-value` (`edu`, `normal`, `dificil`, `geografo`). |
 | `go-local` | Abrir configuração para grupo no mesmo aparelho. |
 | `go-multiplayer` | Abrir o Multiplayer 1x1 (publica `intent:multiplayer`; substitui `go-lan`). |
 | `mp-pick-mode` | Escolher o modo do duelo pelo `data-value` (`classic` | `alternative`; este último desabilitado). |
 | `mp-role` | Escolher `host` (criar sala) ou `join` (entrar em sala) na criação da partida. |
 | `mp-copy` | Copiar o código do anfitrião (`host`) ou o código de resposta (`join`). |
-| `mp-qr-toggle` | Exibir/ocultar QR Code local do código do anfitrião (`host`) ou da resposta do convidado (`join`); é suplementar à cópia/colagem e não solicita acesso à câmera. |
-| `mp-qr-scan` | Abrir a câmera somente após ação explícita para ler QR no próprio navegador, quando BarcodeDetector estiver disponível; preenche o campo correto sem conectar automaticamente. |
-| `mp-qr-scan-close` | Encerrar a câmera e fechar a leitura de QR. |
 | `mp-host-connect` | Anfitrião aplica o código de resposta do convidado e conecta. |
-| `mp-join-go` | Convidado confirma o código da sala (colado ou lido por QR) e gera seu código de resposta. |
+| `mp-join-go` | Convidado cola o código da sala e gera seu código de resposta. |
 | `mp-select-theme` | Anfitrião escolhe `all` ou um eixo (rádio dinâmico em `#mp-themes`). |
 | `mp-start` | Anfitrião inicia a partida. |
 | `mp-confirm` | Confirma a alternativa selecionada no duelo (não pode ser trocada depois). |
@@ -95,7 +93,6 @@ Os eventos são delegados por `ui.js` a partir de um ancestral estável. Não cr
 | `mp-alt-decline` | Recusar o pedido de revanche do oponente. |
 | `mp-alt-again` | Jogar novamente: volta à criação de nova partida (nova sala). |
 | `mp-alt-menu` | Menu principal (botão vermelho). |
-| `setup-select-mode` | Selecionar modalidade pelo `data-value`; somente `solo` está disponível no Módulo 9. |
 | `setup-select-theme` | Selecionar um dos cinco eixos ou `all` (todos). |
 | `setup-select-diff` | Selecionar uma chave existente em `config.tiers`. |
 | `count-dec` | Diminuir a quantidade de perguntas, respeitando o mínimo válido. |
@@ -121,6 +118,17 @@ Os eventos são delegados por `ui.js` a partir de um ancestral estável. Não cr
 | `open-options` | Abrir opções de interface; a redução de animações vale somente na sessão. |
 | `open-customization` | Exibir o estado da personalização futura, sem fingir que ela já está disponível. |
 | `toggle-motion` | Alternar a redução de animações na sessão atual. |
+| `boss-card` | joga uma carta da mão no duelo do chefe |
+| `boss-confirm` | confirma a jogada contra o chefe |
+| `boss-retry` | recomeça o duelo após derrota |
+| `boss-finish` | encerra o desafio e volta à rota |
+| `boss-quit` | abandona o duelo e volta à campanha |
+| `campaign-boss` | inicia o desafio do chefe na rota de campanha |
+| `campaign-point` | avança a um ponto da rota de campanha |
+| `mp-qr-photo` | envia imagem do QR para decodificação (multiplayer) |
+| `mp-qr-scan` | inicia a varredura de QR pela câmera (multiplayer) |
+| `mp-qr-scan-close` | encerra a varredura de QR (multiplayer) |
+| `mp-qr-toggle` | alterna o painel de QR (multiplayer) |
 
 As alternativas **não** usam `data-action`. São os quatro botões `.bq5-option[data-index="0".."3"]` dentro de `#play-options`; delegar o clique nesse contêiner ou em ancestral estável e validar o índice.
 
@@ -151,9 +159,9 @@ Os IDs abaixo integram o contrato e devem permanecer únicos no documento. `moda
 
 ### Menu
 
-`screen-menu`, `menu-title`, `menu-record`, `menu-best-solo`, `menu-bank-info`.
+`screen-menu`, `menu-title`, `menu-record`, `menu-best-solo`.
 
-`menu-bank-info` exibe a contagem devolvida pelo banco carregado (atualmente informada como 508). Nunca escrever a quantidade literal como regra permanente.
+Alpha #4 (2026-11): a contagem do banco de questões saiu do menu principal; ela continua disponível pela API real do banco e no resumo do perfil. Nunca escrever a quantidade literal como regra permanente.
 
 Identidade inicial e progresso local: `menu-player-name`, `menu-player-rank`, `menu-progress-text`, `menu-progress-count`, `menu-progress-bar`. O nome inicial **Explorador** é provisório: os módulos-base ainda não oferecem API de perfil/nome editável. A contagem de regiões concluídas vem de `storage.getProgress()` e a barra só é atualizada quando `config.campaignStages` está disponível.
 
@@ -161,7 +169,6 @@ Ferramentas do menu: `open-profile` abre um resumo; `open-options` abre `tpl-men
 
 ### Configuração
 
-`screen-setup`, `setup-title`, `setup-lead`, `setup-section-mode`, `setup-modes-title`, `setup-modes`, `setup-mode-hint`, `setup-section-themes`, `setup-themes-title`, `setup-themes`, `setup-section-tiers`, `setup-tiers-title`, `setup-tiers`, `setup-tier-hint`, `setup-section-count`, `setup-count-title`, `setup-count-dec`, `setup-count-value`, `setup-count-inc`, `setup-count-hint`, `setup-section-rules`, `setup-rules-title`, `setup-rules`, `setup-section-players`, `setup-players-title`, `setup-players`, `setup-players-add`, `setup-players-remove`, `setup-start`.
 
 O Módulo 9 gera as opções a partir de `config.themes`, `config.themeLabels`, `config.tiers` e `config.tierLabels`, usando `#tpl-choice`; não duplica opções estáticas. Os cinco eixos selecionáveis são Cultura, Economia, Animais, Vegetação e Cidades, além de `all` (todos). A modalidade `solo` é a única habilitada; Campanha, grupo local e LAN aparecem como futuras/desabilitadas até seus módulos estarem implementados. A quantidade padrão vem de `config.soloQuestionCount` e é limitada à disponibilidade calculada a partir de `bank.list()` com a mesma regra de pool mínimo do motor; `engine.start()` é a validação definitiva. `#setup-rules` informa quatro alternativas, confirmação explícita, tempo, pontuação, bônus e ausência de pausa.
 
@@ -189,7 +196,9 @@ O histórico usa `storage.getJSON()`/`storage.setJSON()` com a chave `config.sto
 
 ### Campanha
 
-`screen-campaign`, `campaign-title`, `campaign-progress-text`, `campaign-done`, `campaign-total`, `campaign-progress`, `campaign-route`, `campaign-reset`.
+`screen-campaign`, `campaign-title`, `campaign-progress-text`, `campaign-done`, `campaign-total`, `campaign-progress`, `campaign-route`, `campaign-reset`, `campaign-tiers`.
+
+Alpha #4 (2026-11): o seletor de dificuldade usa os rótulos de `config.tierLabels`; a rota é construída em runtime pelo módulo 12 (tela) a partir de `BQ5.campaign.hub()`.
 
 ### Sala com amigos (LAN)
 
@@ -198,7 +207,7 @@ O histórico usa `storage.getJSON()`/`storage.setJSON()` com a chave `config.sto
 ### Multiplayer 1x1 (Módulo 13)
 
 `screen-mp-mode`, `mp-mode-title`, `mp-mode-classic`, `mp-classic-text`, `mp-mode-alt`, `mp-alt-text`.
-`screen-mp-setup`, `mp-setup-title`, `mp-setup-lead`, `mp-nick`, `mp-role-title`, `mp-role`, `mp-role-hint`, `mp-panel-host`, `mp-host-code`, `mp-host-copy`, `mp-host-qr-toggle`, `mp-host-qr-panel`, `mp-host-qr`, `mp-host-answer`, `mp-host-connect`, `mp-host-scan`, `mp-host-scan-note`, `mp-panel-join`, `mp-join-offer`, `mp-join-go`, `mp-join-code`, `mp-join-copy`, `mp-join-qr-toggle`, `mp-join-qr-panel`, `mp-join-qr`, `mp-join-scan`, `mp-join-scan-note`, `mp-status`, `mp-qr-scanner`, `mp-qr-scanner-title`, `mp-qr-video`, `mp-qr-scan-status`.
+`screen-mp-setup`, `mp-setup-title`, `mp-setup-lead`, `mp-nick`, `mp-role-title`, `mp-role`, `mp-role-hint`, `mp-panel-host`, `mp-host-code`, `mp-host-copy`, `mp-host-answer`, `mp-host-connect`, `mp-panel-join`, `mp-join-offer`, `mp-join-go`, `mp-join-code`, `mp-join-copy`, `mp-status`.
 `screen-mp-theme`, `mp-theme-title`, `mp-theme-lead`, `mp-themes-title`, `mp-themes`, `mp-theme-hint`, `mp-leave-theme`, `mp-start`.
 `screen-mp-wait`, `mp-wait-title`, `mp-wait-text`, `mp-leave-wait`.
 `screen-mp-play`, `mp-play-title`, `mp-quit`, `mp-round`, `mp-total`, `mp-target`, `mp-score`, `mp-score-me`, `mp-score-opp`, `mp-name-me`, `mp-name-opp`, `mp-progress`, `mp-opp-status`, `mp-timer`, `mp-time-left`, `mp-tag-theme`, `mp-tag-region`, `mp-tag-diff`, `mp-question`, `mp-options`, `mp-feedback`, `mp-feedback-title`, `mp-feedback-points`, `mp-feedback-text`, `mp-live`, `mp-confirm`.
@@ -218,6 +227,15 @@ Módulo 18 (`js/hp.js`): `BQ5.hp.create({ids,max})`, `damageFor(dificuldade)` (5
 `tpl-choice`, `tpl-player-field`, `tpl-roster-item`, `tpl-ranking-item`, `tpl-review-item`, `tpl-route-node`, `tpl-lan-player`, `tpl-modal`, `modal-title`, `tpl-menu-options`, `tpl-toast`.
 
 ---
+
+
+#### Telas e painéis novos (alpha #4 — campanha/MP)
+- Tela do chefe: `screen-boss`, `boss-title`, `boss-problem`, `boss-player-hp`, `boss-player-max`, `boss-player-bar`, `boss-name`, `boss-boss-hp`, `boss-boss-max`, `boss-boss-bar`, `boss-strike`, `boss-strike-count`, `boss-message`, `boss-hand`, `boss-question-box`, `boss-timer`, `boss-time-left`, `boss-question`, `boss-options`, `boss-feedback`, `boss-feedback-title`, `boss-feedback-text`, `boss-end`, `boss-end-title`, `boss-end-text`, `boss-quit`, `boss-confirm`, `boss-retry`, `boss-finish`
+- Rota de campanha: `campaign-tier-hint`, `campaign-tiers-title`, `tpl-route-point`
+- Painel QR multiplayer: `mp-host-photo`, `mp-host-qr`, `mp-host-qr-panel`, `mp-host-qr-toggle`, `mp-host-scan`, `mp-host-scan-note`, `mp-join-photo`, `mp-join-qr`, `mp-join-qr-panel`, `mp-join-qr-toggle`, `mp-join-scan`, `mp-join-scan-note`, `mp-qr-file`, `mp-qr-scan-status`, `mp-qr-scanner`, `mp-qr-video`
+
+- Setup (fluxo de configuração): `screen-setup`, `setup-title`, `setup-lead`, `setup-section-count`, `setup-count-title`, `setup-count-inc`, `setup-count-dec`, `setup-count-value`, `setup-count-hint`, `setup-section-players`, `setup-players-title`, `setup-players`, `setup-players-add`, `setup-players-remove`, `setup-section-rules`, `setup-rules-title`, `setup-rules`, `setup-section-themes`, `setup-themes-title`, `setup-themes`, `setup-section-tiers`, `setup-tiers-title`, `setup-tiers`, `setup-tier-hint`, `setup-start`
+- Painel QR (complemento): `mp-qr-scanner-title`
 
 ## 4. Grupos de rádio e seleções exclusivas
 
@@ -414,13 +432,12 @@ Módulos de interface ativos:
 4. `js/screens/play.js` (módulo 10) — fluxo de pergunta, seleção + confirmação, timer, progresso, pontos, revelação, timeout e abandono.
 5. `js/screens/results.js` (módulo 11) — resultado, revisão educativa, desempenho por eixo e histórico resumido.
 
-Ainda pendentes, e mantidos sem `<script src>` ativo até existirem:
-6. `js/screens/campaign.js` (módulo 12)
-7. `js/main.js` (módulo 15)
+Ainda pendente, e mantida sem `<script src>` ativo até existir:
+6. `js/main.js` (módulo 15)
 
-Ativos (nesta ordem, após `results.js`): `js/hp.js` (módulo 18), `js/multiplayer/lan.js` (transporte WebRTC por troca de códigos) `js/multiplayer/local.js` (telas e regras do duelo 1x1 clássico; assina `intent:multiplayer`) e `js/multiplayer/alt.js` (modo alternativo, registrado como variante).
+Ativos (nesta ordem, após `results.js`): `js/hp.js` (módulo 18), `js/multiplayer/lan.js` (transporte WebRTC por troca de códigos), `js/multiplayer/qr.js` e `js/multiplayer/qr-reader.js` (QR suplementar: geração local e leitura por câmera/foto), `js/multiplayer/local.js` (telas e regras do duelo 1x1 clássico; assina `intent:multiplayer`), `js/multiplayer/alt.js` (modo alternativo, registrado como variante), `js/campaign.js` (domínio M12) e `js/screens/campaign.js` (tela de campanha; assina `intent:campaign`).
 
-O Módulo 8 registra intenções (`intent:solo`, `intent:campaign`, `intent:local`, `intent:lan`) no barramento da UI. O Módulo 9 assina `intent:solo` e abre a configuração; as outras modalidades permanecem futuras/desabilitadas. `BQ5.screens.menu.show()` continua sendo chamado pelo bootstrap do Módulo 15 após o carregamento válido do banco; M7–M11 não contornam a tela de boot nem iniciam o menu automaticamente.
+O Módulo 8 registra intenções (`intent:solo`, `intent:campaign`, `intent:local`, `intent:lan`) no barramento da UI. O Módulo 9 assina `intent:solo` e abre a configuração; a tela de campanha (M12) assina `intent:campaign`; as demais modalidades permanecem futuras/desabilitadas. `BQ5.screens.menu.show()` continua sendo chamado pelo bootstrap do Módulo 15 após o carregamento válido do banco; M7–M11 não contornam a tela de boot nem iniciam o menu automaticamente.
 
 Não usar `async` nos scripts dependentes. Se `defer` for introduzido, validar novamente a ordem e o momento de inicialização. `../dev/ui-preview.js` é provisório de desenvolvimento e deve ser removido no Módulo 15 antes da distribuição. O carregamento de `data/questions.json` depende de HTTP local; não assumir que `fetch()` funcionará via `file://`.
 

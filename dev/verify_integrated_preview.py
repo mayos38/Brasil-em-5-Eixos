@@ -3,9 +3,10 @@
 
 A) Checagens estáticas (arquivos, ordem de scripts em index.html, resolução dos
    caminhos relativos a partir de /dev/, banco real com 508 questões).
-B) Fluxo completo em V8 real (py-mini-racer): módulos reais M1–M11 + bootstrap do
+B) Fluxo completo em V8 real (py-mini-racer): módulos reais M1–M12 + bootstrap do
    preview: menu -> setup (eixo+dificuldade) -> partida solo completa (pontuação
-   real base+bônus, timeout via engine) -> resultados (histórico persistido) -> menu.
+   real base+bônus, timeout via engine) -> resultados (histórico persistido) -> menu
+   -> tela de campanha (intent:campaign, dados reais do hub() do M12).
 C) Servidor HTTP local: todos os caminhos usados pelo preview respondem 200.
 
 Uso (na raiz do projeto):  python dev/verify_integrated_preview.py
@@ -42,7 +43,10 @@ def static_checks():
     check("HTML liga o CSS real (../brasil-quiz/css/style.css)", "../brasil-quiz/css/style.css" in html)
 
     idx_path = os.path.join(ROOT, "brasil-quiz", "index.html")
-    idx = open(idx_path, encoding="utf-8").read() if os.path.isfile(idx_path) else ""
+    idx_raw = open(idx_path, encoding="utf-8").read() if os.path.isfile(idx_path) else ""
+    # Remove comentários HTML antes de extrair <script src>: o bloco PENDENTES
+    # (ex.: js/main.js comentado) não é carregado pelo navegador nem pelo preview.
+    idx = re.sub(r"<!--.*?-->", "", idx_raw, flags=re.S)
     order = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', idx)
     check("index.html declara scripts <script src>", len(order) >= 6, str(order))
 
@@ -73,13 +77,58 @@ def static_checks():
     check("banco real questions.json carrega com 508 questões", count == 508, "count=%d" % count)
 
 # ---------------------------------------------------------------- B) V8
+# Completa o stub de DOM do harness para os módulos REAIS de interface:
+# atributos, style.setProperty e a classe .bq5-screen nas seções (o preview
+# injeta o HTML real no navegador; aqui só validamos o fluxo dos módulos).
+DOM_PATCH_JS = r"""
+(function () {
+  'use strict';
+  function patch(el) {
+    if (!el || el.__domPatched) return;
+    el.__domPatched = true;
+    var attrs = {};
+    el.getAttribute = function (k) { return Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null; };
+    el.setAttribute = function (k, v) { attrs[k] = String(v); };
+    el.removeAttribute = function (k) { delete attrs[k]; };
+    el.hasAttribute = function (k) { return Object.prototype.hasOwnProperty.call(attrs, k); };
+    if (!el.closest) el.closest = function () { return null; };
+    if (!el.contains) el.contains = function () { return true; };
+    // descendentes: o showScreen() do ui.js consulta h1/[role=heading] DENTRO da
+    // seção — patcheia o resultado para que hasAttribute/setAttribute existam.
+    if (typeof el.querySelector === 'function' && !el.__qsPatched) {
+      el.__qsPatched = true;
+      var origElQs = el.querySelector.bind(el);
+      el.querySelector = function (sel) { var r = origElQs(sel); if (r && !r.__domPatched) patch(r); return r; };
+    }
+    el.style = el.style || {};
+    if (!el.style.setProperty) el.style.setProperty = function () {};
+  }
+  var origQs = document.querySelector.bind(document);
+  document.querySelector = function (sel) { var el = origQs(sel); patch(el); return el; };
+  var origCreate = document.createElement.bind(document);
+  document.createElement = function (tag) { var el = origCreate(tag); patch(el); return el; };
+  // seções reconhecidas por BQ5.ui.showScreen() no stub
+  var app = document.querySelector('#bq5-app');
+  if (app && app.querySelector) {
+    var names = ['boot', 'menu', 'setup', 'play', 'results', 'campaign'];
+    for (var i = 0; i < names.length; i++) {
+      var s = app.querySelector('screen-' + names[i]);
+      if (s && s.classList) s.classList.add('bq5-screen');
+    }
+  }
+})();
+"""
+
 STUB_JS = r"""
 (function () {
   'use strict';
   globalThis.fetch = function (url) {
     var u = String(url);
     if (u.indexOf('questions.json') !== -1) {
-      return Promise.resolve({ ok: true, status: 200, text: function () { return Promise.resolve(globalThis.__BANK_TEXT); } });
+      var bank = globalThis.__BANK_TEXT;
+      return Promise.resolve({ ok: true, status: 200,
+        text: function () { return Promise.resolve(bank); },
+        json: function () { return Promise.resolve(JSON.parse(bank)); } });
     }
     return Promise.resolve({ ok: true, status: 200, text: function () { return Promise.resolve('<html><head></head><body></body></html>'); } });
   };
@@ -186,6 +235,21 @@ SCENARIO_JS = r"""
     assert(r && r.ok === true, 'toMenu: ' + JSON.stringify(r));
     assert(BQ5.ui.currentScreen() === 'menu', 'screen=' + BQ5.ui.currentScreen());
   });
+
+  test('F9 menu -> tela de campanha (action:go-campaign, como o botão real dispara)', function () {
+    var handled = BQ5.ui.emit('action:go-campaign', {});
+    assert(handled > 0, 'nenhum handler para action:go-campaign');
+    assert(BQ5.ui.currentScreen() === 'campaign', 'screen=' + BQ5.ui.currentScreen());
+  });
+  test('F10 tela de campanha renderiza dados reais do hub() do M12 (tier inicial edu)', function () {
+    var hint = BQ5.ui.el('#campaign-tier-hint');
+    assert(hint && String(hint.textContent).length > 0, 'tiers/hint nao renderizados');
+    var done = BQ5.ui.el('#campaign-done'), total = BQ5.ui.el('#campaign-total');
+    assert(done && total, '#campaign-done/#campaign-total ausentes');
+    assert(total.textContent === String(BQ5.campaign.hub('edu').regions.length), 'total=' + total.textContent);
+    var n = Number(done.textContent);
+    assert(n >= 0 && n <= Number(total.textContent), 'done=' + done.textContent);
+  });
   test('F8 recorde solo persistido (bq5_best_solo)', function () {
     var key = (cfg.storageKeys && cfg.storageKeys.bestSolo) || 'bq5_best_solo';
     var best = BQ5.storage.getJSON(key, 0);
@@ -195,17 +259,22 @@ SCENARIO_JS = r"""
 """
 
 def run_v8():
-    section("B) Fluxo completo em V8 real (módulos reais M1–M11 + bootstrap do preview)")
+    section("B) Fluxo completo em V8 real (módulos reais M1–M12 + bootstrap do preview)")
     sys.path.insert(0, os.path.join(ROOT, "tests"))
     from harness import make_ctx, load_js  # noqa: E402
 
-    ctx = make_ctx()
-    load_js(ctx, "tests/js/bootstrap_setup_play.js")  # stub de DOM já validado pelas suítes do projeto
+    ctx = make_ctx()  # stub de DOM básico do harness (BOOT_JS)
+    ctx.eval(DOM_PATCH_JS)  # completa o stub para os módulos reais de interface
+    # Ordem real de index.html. bootstrap_setup_play.js NÃO entra aqui: ele é um
+    # adaptador fake BQ5.ui das suítes M9/M10 e sobrescreveria a UI real que esta
+    # seção valida (o bug antigo era carregá-lo ANTES do config, sem BQ5.config).
     modules = [
         "brasil-quiz/js/config.js", "brasil-quiz/js/util.js", "brasil-quiz/js/storage.js",
         "brasil-quiz/js/bank.js", "brasil-quiz/js/engine.js", "brasil-quiz/js/ui.js",
         "brasil-quiz/js/screens/menu.js", "brasil-quiz/js/screens/setup.js",
         "brasil-quiz/js/screens/play.js", "brasil-quiz/js/screens/results.js",
+        "brasil-quiz/js/campaign.js",                # M12 (domínio) — declarado em index.html
+        "brasil-quiz/js/screens/campaign.js",        # M12 (telas da campanha: mapa + chefe)
     ]
     for m in modules:
         load_js(ctx, m)
@@ -215,10 +284,19 @@ def run_v8():
     ctx.eval(STUB_JS)  # fetch/DOMParser mínimos (sem rede no V8); módulos já carregados acima
 
     load_js(ctx, "dev/integrated-preview.js")  # auto-executa: shell stub -> injeção no-op -> boot -> loadBank()
-    ctx.eval("void 0")  # checkpoint de microtarefas: conclui o encadeamento até menu.show()
+    # Checkpoint de microtarefas: cada eval vazio drena uma rodada; repete até o
+    # banco carregar (cadeia fetchShell -> loadScripts -> boot() -> bank.load()).
+    for _ in range(50):
+        ctx.eval("void 0")
+        try:
+            if ctx.eval("(BQ5 && BQ5.bank && BQ5.bank.loaded()) === true"):
+                break
+        except Exception:
+            pass
 
     ctx.eval(SCENARIO_JS)
-    results = json.loads(ctx.eval("JSON.stringify(__tests__)"))
+    # Nome canônico do harness: globalThis.__tests (um único sublinhado final).
+    results = json.loads(ctx.eval("JSON.stringify(__tests)"))
     for name, ok, err in results:
         print(("  PASS " if ok else "  FAIL ") + name + ("" if ok else ("   -> " + str(err))))
     return sum(1 for _, ok, _ in results if ok), len(results)
@@ -229,7 +307,9 @@ def http_checks():
     import threading, urllib.request, http.server, socketserver
 
     srv = None
-    for p in range(8765, 8790):
+    # Faixas alternadas: o Windows reserva dinamicamente blocos de portas (Hyper-V);
+    # se a primeira faixa estiver excluída, usamos a segunda.
+    for p in list(range(8765, 8790)) + list(range(8900, 8940)):
         try:
             handler = type("H", (http.server.SimpleHTTPRequestHandler,), {"directory": ROOT})
             srv = socketserver.TCPServer(("127.0.0.1", p), handler)
@@ -237,7 +317,7 @@ def http_checks():
         except OSError:
             continue
     if srv is None:
-        check("servidor de teste pôde iniciar (porta 8765–8789)", False, "nenhuma porta livre")
+        check("servidor de teste pôde iniciar (portas 8765–8789/8900–8939)", False, "nenhuma porta livre")
         return
     t = threading.Thread(target=srv.serve_forever)
     t.daemon = True
@@ -248,7 +328,10 @@ def http_checks():
                  urllib.parse.urljoin(page, "../brasil-quiz/index.html"),
                  urllib.parse.urljoin(page, "../brasil-quiz/css/style.css"),
                  urllib.parse.urljoin(page, "../brasil-quiz/data/questions.json")]
+        # Mesmo tratamento da seção A: comentários HTML não são carregados pelo
+        # navegador nem pelo preview (ex.: js/main.js no bloco PENDENTES).
         idx = open(os.path.join(ROOT, "brasil-quiz", "index.html"), encoding="utf-8").read()
+        idx = re.sub(r"<!--.*?-->", "", idx, flags=re.S)
         for src in re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', idx):
             paths.append(urllib.parse.urljoin(page, ("../brasil-quiz/" + src) if src.startswith("js/") else src))
         details = []

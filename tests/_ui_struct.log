@@ -1,0 +1,23 @@
+FAIL: IDs documentados presentes no HTML -> ['setup-mode-hint', 'setup-modes', 'setup-modes-title', 'setup-section-mode']
+FAIL: todos os IDs estáticos do HTML constam no contrato -> ['mp-host-photo', 'mp-host-qr', 'mp-host-qr-panel', 'mp-host-qr-toggle', 'mp-host-scan', 'mp-host-scan-note', 'mp-join-photo', 'mp-join-qr', 'mp-join-qr-panel', 'mp-join-qr-toggle', 'mp-join-scan', 'mp-join-scan-note', 'mp-qr-file', 'mp-qr-scan-status', 'mp-qr-scanner', 'mp-qr-scanner-title', 'mp-qr-video']
+FAIL: controle #mp-qr-file possui nome acessível 
+FAIL: todas as ações HTML estão documentadas -> ['mp-qr-photo', 'mp-qr-scan', 'mp-qr-scan-close', 'mp-qr-toggle']
+FAIL: ações do contrato têm ponto de entrada no HTML/template ou geração dinâmica registrada -> ['setup-select-mode']
+WARN: classes CSS ainda sem uso literal no HTML/contrato (podem ser templates dinâmicos): bq5-altcard, bq5-altcard__diff, bq5-altcard__dmg, bq5-altcard__theme, bq5-altevent, bq5-altsum, bq5-altsum__label, bq5-altsum__list, bq5-altsum__name, bq5-altsum__row, bq5-altsum__value, bq5-footnote
+FAIL: cores literais mantidas em :root (sem hardcode fora dos tokens) -> ['#ffffff']
+FAIL: token --bq5-bg alinha à identidade M5.5 -> #171B12
+FAIL: token --bq5-surface-1 alinha à identidade M5.5 -> #252C1C
+FAIL: token --bq5-surface-2 alinha à identidade M5.5 -> #343D27
+FAIL: token --bq5-border alinha à identidade M5.5 -> #536044
+FAIL: token --bq5-text-primary alinha à identidade M5.5 -> #F2F0E5
+FAIL: token --bq5-text-secondary alinha à identidade M5.5 -> #E3B65C
+FAIL: token --bq5-primary alinha à identidade M5.5 -> #E3B65C
+FAIL: contraste border-strong/surface-2 >= 3.0:1 -> 2.98:1
+WARN: script ativo fora da lista-base: js/campaign.js
+WARN: script ativo fora da lista-base: js/screens/campaign-ui.js
+FAIL: classes adicionadas pelo JS estão no CSS -> ['art.js -> .bq5-art__image']
+FAIL: JS não escreve estilos inline fora de --p/--c (heurística) -> ["local.js: .style.colorScheme = 'light';     path.setAttribute('shape-rendering', 'crispEdges');     svg.append", "qr.js: .style.width = (px / dpr) + 'px';     img.style.height = (px / dpr) + 'px';     img.src = url;     w", "qr.js: .style.height = (px / dpr) + 'px';     img.src = url;     while (target.firstChild) target.removeChi"]
+WARN: PROGRESS existe, mas a entrada Módulo 5.5 não foi reconhecida automaticamente.
+347 verificações OK; 16 falhas
+4 avisos
+RESULT: FAIL
