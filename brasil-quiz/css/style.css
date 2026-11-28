@@ -54,9 +54,9 @@
   --bq5-theme-cultura: #C97B5A;
   --bq5-theme-economia: #4E8FD1;
   --bq5-theme-animais: #E0A458;
-  --bq5-theme-vegetacao: #2FBF71;
+  --bq5-theme-natureza: #2FBF71;
   --bq5-theme-cidades: #A78BFA;
-  /* clima é subtópico de Vegetação; não recebe token de eixo independente */
+  /* clima e relevo são subtópicos de Natureza; não recebem token de eixo independente */
   --bq5-subtopic-clima: #5CC8FF;
 
   /* regiões: tons derivados da paleta territorial, com contraste verificável */
@@ -332,7 +332,7 @@ code {
 [data-theme="cultura"] { --c: var(--bq5-theme-cultura); }
 [data-theme="economia"] { --c: var(--bq5-theme-economia); }
 [data-theme="animais"] { --c: var(--bq5-theme-animais); }
-[data-theme="vegetacao"] { --c: var(--bq5-theme-vegetacao); }
+[data-theme="natureza"] { --c: var(--bq5-theme-natureza); }
 [data-theme="cidades"] { --c: var(--bq5-theme-cidades); }
 /* Subtópicos usam atributos próprios; clima não integra a seleção dos cinco eixos. */
 [data-subtopic="clima"] { --subtopic-color: var(--bq5-subtopic-clima); }

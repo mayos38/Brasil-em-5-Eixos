@@ -378,6 +378,12 @@
     var history = s.getJSON(historyKey(), []);
     if (!Array.isArray(history)) return [];
     var copy = clonePlain(history) || [];
+    // Alpha #5: entradas gravadas antes da troca Vegetação → Natureza.
+    copy.forEach(function (entry) {
+      if (!entry || typeof entry !== 'object') return;
+      if (entry.theme === 'vegetacao') entry.theme = 'natureza';
+      if (Array.isArray(entry.performance)) entry.performance.forEach(function (p) { if (p && p.axis === 'vegetacao') p.axis = 'natureza'; });
+    });
     var max = isFiniteNumber(limit) && limit >= 0 ? Math.floor(limit) : copy.length;
     return copy.slice(0, max);
   }

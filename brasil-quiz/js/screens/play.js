@@ -327,7 +327,7 @@
       title: 'Fim da partida',
       message: message,
       cancelLabel: 'Fechar',
-      confirmLabel: 'Voltar ao menu',
+      confirmLabel: 'Voltar ao menu principal',
       showCancel: false,
       onConfirm: function () {
         ui().showScreen('menu', { history: false, clearHistory: true });

@@ -84,17 +84,50 @@
   // tentativa); maxRight = maior total de acertos já obtido no ponto.
   S.defaultCampaignV2 = function () { return { tiers: {} }; };
 
+  // Alpha #5: o eixo "Vegetação" (chave interna 'vegetacao') passou a se chamar
+  // "Natureza" ('natureza'). Progresso salvo antes da troca usa pointId
+  // "<regiao>:vegetacao"; ao ler, a chave é migrada para "<regiao>:natureza"
+  // (preservando o maior score/maxRight caso as duas existam) e regravada.
+  S.THEME_ALIASES = { vegetacao: 'natureza' };
+
+  function migratePointId(id) {
+    const m = /^([^:]+):(.+)$/.exec(String(id));
+    if (!m) return id;
+    return Object.prototype.hasOwnProperty.call(S.THEME_ALIASES, m[2]) ? m[1] + ':' + S.THEME_ALIASES[m[2]] : id;
+  }
+
   S.getCampaignV2 = function () {
     const v = S.getJSON(keys().campaignV2 || 'bq5_campaign_v2', S.defaultCampaignV2());
     if (!v || typeof v !== 'object' || typeof v.tiers !== 'object') return S.defaultCampaignV2();
     const out = { tiers: {} };
+    let migrated = false;
     Object.keys(v.tiers).forEach(function (tier) {
       const t = v.tiers[tier] || {};
+      const points = {};
+      const rawPoints = (t.points && typeof t.points === 'object') ? t.points : {};
+      Object.keys(rawPoints).forEach(function (id) {
+        const nid = migratePointId(id);
+        if (nid !== id) migrated = true;
+        const cur = rawPoints[id];
+        const prev = points[nid];
+        if (prev && cur && typeof prev === 'object' && typeof cur === 'object') {
+          // as duas chaves existem: mantém o melhor de cada campo numérico
+          const merged = {};
+          Object.keys(prev).concat(Object.keys(cur)).forEach(function (k) {
+            const a = prev[k], b = cur[k];
+            merged[k] = (typeof a === 'number' && typeof b === 'number') ? Math.max(a, b) : (b !== undefined ? b : a);
+          });
+          points[nid] = merged;
+        } else if (!prev || nid === id) {
+          points[nid] = cur;
+        }
+      });
       out.tiers[tier] = {
-        points: (t.points && typeof t.points === 'object') ? t.points : {},
+        points: points,
         bosses: (t.bosses && typeof t.bosses === 'object') ? t.bosses : {}
       };
     });
+    if (migrated) S.saveCampaignV2(out);
     return out;
   };
 

@@ -42,10 +42,10 @@
     damageByDifficulty: { 1: 100, 2: 125, 3: 150, 4: 175 },
     timeoutCardPolicy: 'retain'
   };
-  var THEMES = ['all', 'cultura', 'economia', 'animais', 'vegetacao', 'cidades'];
+  var THEMES = ['all', 'cultura', 'economia', 'animais', 'natureza', 'cidades'];
   var THEME_LABELS = {
     all: 'Tema livre', cultura: 'Cultura', economia: 'Economia',
-    animais: 'Animais', vegetacao: 'Vegetação', cidades: 'Cidades'
+    animais: 'Animais', natureza: 'Natureza', cidades: 'Cidades'
   };
   var DIFFICULTY_LABELS = { 1: 'Fácil', 2: 'Padrão', 3: 'Difícil', 4: 'Geógrafo' };
 

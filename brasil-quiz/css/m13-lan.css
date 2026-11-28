@@ -225,7 +225,7 @@
 .m13-theme-card[data-theme="cultura"] { --m13-theme: var(--bq5-theme-cultura, #C97B5A); }
 .m13-theme-card[data-theme="economia"] { --m13-theme: var(--bq5-theme-economia, #4E8FD1); }
 .m13-theme-card[data-theme="animais"] { --m13-theme: var(--bq5-theme-animais, #E0A458); }
-.m13-theme-card[data-theme="vegetacao"] { --m13-theme: var(--bq5-theme-vegetacao, #2FBF71); }
+.m13-theme-card[data-theme="natureza"] { --m13-theme: var(--bq5-theme-natureza, #2FBF71); }
 .m13-theme-card[data-theme="cidades"] { --m13-theme: var(--bq5-theme-cidades, #A78BFA); }
 .m13-theme-card__symbol {
   display: grid;
@@ -498,7 +498,7 @@
 .m13-card-button[data-theme="cultura"] { --m13-theme: var(--bq5-theme-cultura, #C97B5A); }
 .m13-card-button[data-theme="economia"] { --m13-theme: var(--bq5-theme-economia, #4E8FD1); }
 .m13-card-button[data-theme="animais"] { --m13-theme: var(--bq5-theme-animais, #E0A458); }
-.m13-card-button[data-theme="vegetacao"] { --m13-theme: var(--bq5-theme-vegetacao, #2FBF71); }
+.m13-card-button[data-theme="natureza"] { --m13-theme: var(--bq5-theme-natureza, #2FBF71); }
 .m13-card-button[data-theme="cidades"] { --m13-theme: var(--bq5-theme-cidades, #A78BFA); }
 .m13-card-button::before {
   content: "";

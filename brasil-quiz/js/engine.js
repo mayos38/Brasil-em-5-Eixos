@@ -265,11 +265,16 @@
    * para o fluxo da questão (alternativas embaralhadas, sem repetição na
    * rodada, pontuação pointsBase + bônus de tempo, relógio injetável), com
    * pool por prioridade conforme GDD v1.1 §5 (paradas mistas usam os cinco eixos):
-   *   com tema : região+tema+tier → fallback regional (mesma região e tier,
-   *              outros temas)
-   *   sem tema : região+tier
-   * NUNCA cruza dificuldade nem outra região para completar a parada.
-   * Se o pool + fallback não fornecerem `count` questões => NO_QUESTIONS
+   *   com tema : região+tema+tier; se faltar, completa com o MESMO tema e o
+   *              MESMO tier de outras regiões (regiões mais próximas na ordem
+   *              Norte→Sul primeiro)
+   *   sem tema : região+tier; se faltar, completa com o mesmo tier de outras
+   *              regiões (mais próximas primeiro)
+   * A DIFICULDADE DA PARADA É FIXA: nunca entra questão de outro tier (nem
+   * vizinho) e a parada temática nunca puxa outro tema. O que pode relaxar,
+   * como último recurso, é só a região (alpha #5: antes completava com
+   * dificuldades vizinhas e misturava Fácil com Padrão).
+   * Se mesmo assim o tema+tier não fornecerem `count` questões => NO_QUESTIONS
    * estruturado (a sessão incompleta nunca inicia).
    * A persistência da rodada NÃO é feita aqui: o módulo BQ5.campaign
    * registra o resultado (regra de nova tentativa / desbloqueio do chefe).
@@ -310,15 +315,33 @@
     var tierDs = (c.tiers || {})[tier] || [];
     var all = bank().list();
     var inTier = function (q) { return tierDs.indexOf(q.difficulty) !== -1; };
-    // GDD v1.1 §5: prioridade região+eixo+dificuldade; se não completar, SOMENTE
-    // o fallback regional já implementado no projeto (mesma região e tier,
-    // outros temas). Sem pool suficiente => erro estruturado.
-    var seen = Object.create(null);
+    // GDD v1.1 §5: prioridade região+eixo+dificuldade. A dificuldade (tier) e,
+    // nas paradas temáticas, o tema são TRAVADOS. Se a região não tiver
+    // `count` questões do tier, completa com o mesmo tema/tier de outras
+    // regiões, das mais próximas (ordem Norte→Sul) para as mais distantes.
+    var order = (c.campaignStages && c.campaignStages.length) ? c.campaignStages : (c.regions || []);
+    var regionDist = function (r) {
+      var ia = order.indexOf(region), ib = order.indexOf(r);
+      return (ia < 0 || ib < 0) ? 99 : Math.abs(ia - ib);
+    };
+    // Outras regiões: agrupa por distância e sorteia dentro de cada distância
+    // (sem depender de sort estável do motor JS).
+    var nearestFirst = function (list) {
+      var buckets = {}, maxD = 0, i, d, out = [];
+      for (i = 0; i < list.length; i++) {
+        d = regionDist(list[i].region);
+        (buckets[d] = buckets[d] || []).push(list[i]);
+        if (d > maxD) maxD = d;
+      }
+      for (d = 0; d <= maxD; d++) if (buckets[d]) out = out.concat(shuffle(buckets[d]));
+      return out;
+    };
     var candidates = [];
     if (theme === 'all') {
       // GDD v1.1 §2/§5 — paradas mistas "usam os cinco eixos": começa com 1
       // questão de cada eixo que tenha conteúdo na região+tier e completa com o
-      // restante do pool regional embaralhado. Nunca outra região.
+      // restante do pool regional embaralhado. Só se a região não bastar entram
+      // outras regiões (sempre do mesmo tier).
       var regionPool = shuffle(all.filter(function (q) { return q.region === region && inTier(q); }));
       var takenTheme = Object.create(null);
       for (var i0 = 0; i0 < regionPool.length; i0++) {
@@ -327,21 +350,15 @@
       var rest = [];
       for (var i1 = 0; i1 < regionPool.length; i1++) if (candidates.indexOf(regionPool[i1]) === -1) rest.push(regionPool[i1]);
       candidates = shuffle(candidates).concat(shuffle(rest)); // representantes dos eixos primeiro
+      if (candidates.length < count) {
+        candidates = candidates.concat(nearestFirst(all.filter(function (q) { return q.region !== region && inTier(q); })));
+      }
     } else {
-      // Parada temática: TEMA TRAVADO. Só entram questões da região + tema da
-      // parada. Primeiro as da dificuldade (tier) escolhida; se faltar, completa
-      // com o MESMO tema e região em dificuldades vizinhas (mais próximas
-      // primeiro). Nunca puxa outro tema nem outra região.
-      var themed = all.filter(function (q) { return q.region === region && q.theme === theme; });
-      var inT = shuffle(themed.filter(inTier));
-      var distOf = function (q) {
-        var m = Infinity;
-        for (var k = 0; k < tierDs.length; k++) m = Math.min(m, Math.abs(q.difficulty - tierDs[k]));
-        return m;
-      };
-      var outT = shuffle(themed.filter(function (q) { return !inTier(q); }));
-      outT.sort(function (x, y) { return distOf(x) - distOf(y); }); // estável: sorteio preservado dentro da mesma distância
-      candidates = inT.concat(outT);
+      // Parada temática: TEMA E DIFICULDADE TRAVADOS. Primeiro as da região;
+      // se faltar, completa com o mesmo tema e tier de outras regiões.
+      var themedTier = all.filter(function (q) { return q.theme === theme && inTier(q); });
+      var own = shuffle(themedTier.filter(function (q) { return q.region === region; }));
+      candidates = own.concat(nearestFirst(themedTier.filter(function (q) { return q.region !== region; })));
     }
 
     if (candidates.length < count) {
@@ -349,7 +366,7 @@
       return { ok: false, code: 'NO_QUESTIONS', errors: [
         'banco não fornece ' + count + ' questões para a parada (' + lbl +
         ', tier ' + tier + '); disponíveis: ' + candidates.length +
-        '. Sem substituição por outra região ou dificuldade (GDD v1.1 §5).'
+        '. Sem substituição de dificuldade nem de tema (GDD v1.1 §5); só completa com outras regiões.'
       ] };
     }
 

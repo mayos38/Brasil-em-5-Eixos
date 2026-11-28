@@ -65,3 +65,21 @@ Status: Implementado, dia 25-11-2026; verificação do preview integrado 9/9 em 
 
 ### Campanha: tema travado nas paradas temáticas (2026-11-25)
 - engine.stage(): ponto temático usa só questões da região + tema da parada; se a dificuldade não tiver 10, completa com o mesmo tema/região em dificuldades vizinhas. Nunca puxa outro tema. Paradas mistas (Geógrafo) inalteradas.
+
+Update alpha #5: correção da campanha, eixo Natureza e banco ampliado.
+
+Correção de bugs:
+- Campanha: as paradas temáticas voltaram a respeitar a dificuldade escolhida. Antes, quando a região não tinha 10 perguntas daquele tema e nível, o jogo completava com perguntas de dificuldades vizinhas (no Fácil, isso misturava perguntas do Padrão). Agora o nível da parada é sempre o mesmo, do começo ao fim. Se faltarem perguntas da região, a parada é completada com perguntas do mesmo tema e do mesmo nível de regiões próximas (Norte→Sul).
+- Observação: por causa disso, algumas perguntas de uma parada podem ser de outra região, principalmente no Fácil e no Difícil, onde o banco ainda tem poucas perguntas por região. No Padrão quase todas continuam sendo da própria região. O modo Geógrafo e os chefes já respeitavam o nível e não mudaram.
+- Interface: o botão "Voltar ao menu" agora se chama "Voltar ao menu principal" (tela de resultados, fim de partida e duelo local).
+
+Mudanças:
+- O eixo "Vegetação" agora se chama "Natureza" e reúne vegetação, biomas, clima e relevo. A troca vale em todo o jogo (menu, cores, ícone, campanha, chefes, multiplayer e testes). O progresso e o histórico salvos antes da troca são convertidos automaticamente; ninguém perde o que já jogou.
+- Banco de questões: de 508 para 648 perguntas.
+  - +15 perguntas de clima e relevo em cada dificuldade;
+  - +5 perguntas em cada um dos outros eixos (animais, cidades, cultura e economia) em cada dificuldade;
+  - perguntas de animais reformuladas com foco geográfico;
+  - datas e dados econômicos reformulados, para o conteúdo não envelhecer (datas de processos históricos foram mantidas);
+  - opções do nível Geógrafo ampliadas e equilibradas, para a resposta certa não ser a mais longa.
+
+Status: Implementado, dia 28-11-2026; suíte da campanha 29/29 em V8 (com novos testes de regressão para a mistura de dificuldades), migração de progresso testada, e varredura de 240 paradas em Chromium sem nenhuma pergunta fora do nível ou do tema.

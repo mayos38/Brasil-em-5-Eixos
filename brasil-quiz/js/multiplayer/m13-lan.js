@@ -427,10 +427,10 @@
     if (playersSection) show(playersSection, !!(state.role && state.pc));
   }
   function themeGlyph(theme) {
-    return ({ all: '✦', cultura: '◈', economia: '↗', animais: '◉', vegetacao: '❋', cidades: '▦' })[theme] || '◆';
+    return ({ all: '✦', cultura: '◈', economia: '↗', animais: '◉', natureza: '❋', cidades: '▦' })[theme] || '◆';
   }
   function themeDescription(theme) {
-    return ({ all: 'Questões dos cinco eixos', cultura: 'Patrimônio, costumes e sociedade', economia: 'Produção, trabalho e circulação', animais: 'Fauna e biodiversidade brasileira', vegetacao: 'Biomas, paisagens e clima', cidades: 'Território e vida urbana' })[theme] || 'Tema do duelo';
+    return ({ all: 'Questões dos cinco eixos', cultura: 'Patrimônio, costumes e sociedade', economia: 'Produção, trabalho e circulação', animais: 'Fauna e biodiversidade brasileira', natureza: 'Vegetação, biomas, clima e relevo', cidades: 'Território e vida urbana' })[theme] || 'Tema do duelo';
   }
   function renderLobby() {
     var root = el('#m13-lobby'); if (!root) return;

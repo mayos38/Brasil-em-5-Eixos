@@ -11,12 +11,12 @@
     appVersion: '0.2-modular',
 
     // Temas e regiões do banco de questões
-    themes: ['cultura', 'economia', 'animais', 'vegetacao', 'cidades'],
+    themes: ['cultura', 'economia', 'animais', 'natureza', 'cidades'],
     regions: ['norte', 'nordeste', 'centro-oeste', 'sudeste', 'sul'],
 
     themeLabels: {
       all: 'Todos os temas', cultura: 'Cultura', economia: 'Economia',
-      animais: 'Animais', vegetacao: 'Vegetação', cidades: 'Cidades'
+      animais: 'Animais', natureza: 'Natureza', cidades: 'Cidades'
     },
     regionLabels: {
       norte: 'Norte', nordeste: 'Nordeste', 'centro-oeste': 'Centro-Oeste',
@@ -89,9 +89,9 @@
       bosses: {
         // Identidade regional do chefe — MESMA nas quatro dificuldades (§8).
         // name/problem = null => pendente de definição editorial (não inventar).
-        norte:          { name: 'Tupã',    vulnTheme: 'vegetacao', problem: 'Desmatamento' },
+        norte:          { name: 'Tupã',    vulnTheme: 'natureza', problem: 'Desmatamento' },
         nordeste:       { name: null,      vulnTheme: 'economia',  problem: 'Pobreza e desafios de desenvolvimento regional' },
-        'centro-oeste': { name: 'Boitatá', vulnTheme: 'vegetacao', problem: 'Expansão agrícola e queimadas' },
+        'centro-oeste': { name: 'Boitatá', vulnTheme: 'natureza', problem: 'Expansão agrícola e queimadas' },
         sudeste:        { name: null,      vulnTheme: 'cidades',   problem: 'Planejamento urbano' },
         sul:            { name: null,      vulnTheme: 'cultura',   problem: null }
       }

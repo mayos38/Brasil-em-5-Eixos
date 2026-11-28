@@ -11,8 +11,8 @@ Este documento descreve a estrutura e os estados visuais que os módulos futuros
 1. Os módulos 7–15 consomem os IDs, atributos, classes e templates definidos aqui. Não renomeiam elementos sem atualizar HTML, CSS, contrato e testes em conjunto.
 2. O HTML fornece a estrutura; o CSS fornece apresentação e estados; o JavaScript controla dados, navegação e comportamento.
 3. Não usar `onclick` inline, inserir texto do banco como HTML, nem escrever cores diretamente no JavaScript.
-4. O banco atual contém **508 questões**, mas a quantidade é dinâmica. A interface deve ler a contagem por meio da API real de `bank.js`; nunca fixar `508` no código.
-5. O produto possui cinco eixos selecionáveis: **Cultura, Economia, Animais, Vegetação e Cidades**. Clima é subtópico associado a Vegetação, não um sexto eixo.
+4. O banco atual contém **648 questões**, mas a quantidade é dinâmica. A interface deve ler a contagem por meio da API real de `bank.js`; nunca fixar `648` (nem o antigo `508`) no código.
+5. O produto possui cinco eixos selecionáveis: **Cultura, Economia, Animais, Natureza e Cidades**. Clima e relevo são subtópicos associados a Natureza, não eixos independentes.
 6. A identidade visual é provisória e segue `docs/IDENTIDADE_VISUAL.md`. O CSS não carrega imagens, fontes ou outros recursos remotos — **exceção registrada (alpha #4)**: as fontes de interface *Pixeloid Sans* (arquivos locais `assets/fonts/PixeloidSans*.ttf`) e *Silkscreen* (local + `<link>` do Google Fonts no `<head>` do `index.html`, com preconnects); o CSS continua sem `@import`/`url()` remoto.
 7. O layout começa em 320 px, mantém alvos de toque mínimos de 48 px e respeita `prefers-reduced-motion`.
 8. O Módulo 9 coleta configuração; o Módulo 10 apresenta o jogo; `engine.js` continua sendo a autoridade de sorteio, respostas, pontuação, tempo e persistência. `bank.js` continua sendo a autoridade sobre disponibilidade e dados.
@@ -103,7 +103,7 @@ Os eventos são delegados por `ui.js` a partir de um ancestral estável. Não cr
 | `quit-game` | Solicitar confirmação e abandonar a partida conforme as regras do motor; não oferece pausa. |
 | `next` | No estado de escolha, confirmar a alternativa selecionada; após a revelação, avançar; na última, abrir resultados. |
 | `handoff-ready` | Confirmar que o próximo participante está pronto. |
-| `to-menu` | Retornar ao menu. |
+| `to-menu` | Retornar ao menu principal (rótulo do botão: “Voltar ao menu principal”). |
 | `to-campaign` | Abrir mapa/progresso da campanha. |
 | `replay` | Repetir o modo/etapa compatível com o resultado atual. |
 | `campaign-stage` | Solicitar a etapa indicada em `data-value` (chave da região). |
@@ -170,7 +170,7 @@ Ferramentas do menu: `open-profile` abre um resumo; `open-options` abre `tpl-men
 ### Configuração
 
 
-O Módulo 9 gera as opções a partir de `config.themes`, `config.themeLabels`, `config.tiers` e `config.tierLabels`, usando `#tpl-choice`; não duplica opções estáticas. Os cinco eixos selecionáveis são Cultura, Economia, Animais, Vegetação e Cidades, além de `all` (todos). A modalidade `solo` é a única habilitada; Campanha, grupo local e LAN aparecem como futuras/desabilitadas até seus módulos estarem implementados. A quantidade padrão vem de `config.soloQuestionCount` e é limitada à disponibilidade calculada a partir de `bank.list()` com a mesma regra de pool mínimo do motor; `engine.start()` é a validação definitiva. `#setup-rules` informa quatro alternativas, confirmação explícita, tempo, pontuação, bônus e ausência de pausa.
+O Módulo 9 gera as opções a partir de `config.themes`, `config.themeLabels`, `config.tiers` e `config.tierLabels`, usando `#tpl-choice`; não duplica opções estáticas. Os cinco eixos selecionáveis são Cultura, Economia, Animais, Natureza e Cidades, além de `all` (todos). A modalidade `solo` é a única habilitada; Campanha, grupo local e LAN aparecem como futuras/desabilitadas até seus módulos estarem implementados. A quantidade padrão vem de `config.soloQuestionCount` e é limitada à disponibilidade calculada a partir de `bank.list()` com a mesma regra de pool mínimo do motor; `engine.start()` é a validação definitiva. `#setup-rules` informa quatro alternativas, confirmação explícita, tempo, pontuação, bônus e ausência de pausa.
 
 ### Partida
 
@@ -178,7 +178,7 @@ O Módulo 9 gera as opções a partir de `config.themes`, `config.themeLabels`, 
 
 - `play-progress` é uma barra semântica visualizada como sequência de marcadores dinâmicos (um por questão), não como preenchimento contínuo.
 - `play-timer` é a barra fina dentro do topo de `article.bq5-question`; `play-time-left` é o numeral ao lado dela.
-- `play-tag-theme` usa um dos cinco valores de `data-theme`. Quando o conteúdo for subtópico clima, manter `data-theme="vegetacao"` e usar `data-subtopic="clima"`.
+- `play-tag-theme` usa um dos cinco valores de `data-theme`. Quando o conteúdo for subtópico clima ou relevo, manter `data-theme="natureza"` e usar `data-subtopic="clima"` ou `data-subtopic="relevo"`.
 
 ### Troca de aparelho
 
@@ -364,7 +364,7 @@ A identidade é provisória; os valores implementados devem seguir `docs/IDENTID
 
 - **Estrutura:** `--bq5-bg`, `--bq5-surface-1`, `--bq5-surface-2`, `--bq5-border`, `--bq5-border-strong`, `--bq5-text-primary`, `--bq5-text-secondary`.
 - **Marca/feedback:** `--bq5-primary`, `--bq5-primary-ink`, `--bq5-success`, `--bq5-success-bg`, `--bq5-error`, `--bq5-error-bg`, `--bq5-warning`, `--bq5-warning-bg`, `--bq5-info`, `--bq5-disabled-text`, `--bq5-disabled-surface`, `--bq5-focus`, `--bq5-overlay`, `--bq5-bg-gradient-end`, `--bq5-topographic-line`.
-- **Eixos:** `--bq5-theme-cultura`, `--bq5-theme-economia`, `--bq5-theme-animais`, `--bq5-theme-vegetacao`, `--bq5-theme-cidades`.
+- **Eixos:** `--bq5-theme-cultura`, `--bq5-theme-economia`, `--bq5-theme-animais`, `--bq5-theme-natureza`, `--bq5-theme-cidades`.
 - **Subtópico:** `--bq5-subtopic-clima` (não selecionável como eixo).
 - **Regiões:** `--bq5-region-norte`, `--bq5-region-nordeste`, `--bq5-region-centro-oeste`, `--bq5-region-sudeste`, `--bq5-region-sul`.
 - **Tipografia:** `--bq5-font`, `--bq5-font-mono`, `--bq5-fs-xs`, `--bq5-fs-sm`, `--bq5-fs-md`, `--bq5-fs-lg`, `--bq5-fs-xl`, `--bq5-fs-2xl`, `--bq5-fs-hero`.
@@ -374,7 +374,7 @@ A identidade é provisória; os valores implementados devem seguir `docs/IDENTID
 
 ### Semântica dos temas e subtópicos
 
-Os cinco eixos selecionáveis são **Cultura, Economia, Animais, Vegetação e Cidades**, além da opção “Todos os temas”. Não existe token `--bq5-theme-clima` nem seletor `[data-theme="clima"]`. Para um item de conteúdo climático, usar o eixo `vegetacao` e opcionalmente `data-subtopic="clima"`. O subtópico nunca entra na lista de opções de eixo.
+Os cinco eixos selecionáveis são **Cultura, Economia, Animais, Natureza e Cidades**, além da opção “Todos os temas”. Não existe token `--bq5-theme-clima` nem seletor `[data-theme="clima"]`. Para um item de conteúdo climático ou de relevo, usar o eixo `natureza` e opcionalmente `data-subtopic="clima"`/`"relevo"`. O subtópico nunca entra na lista de opções de eixo.
 
 ### Semântica das regiões
 

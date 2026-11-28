@@ -94,7 +94,7 @@
       { id: 'cultura', name: 'Ícone — Cultura', description: 'Ícone de exemplo para o eixo Cultura.', src: 'assets/art/icons/icone-cultura.svg', alt: 'Ícone de Cultura', fit: 'contain' },
       { id: 'economia', name: 'Ícone — Economia', description: 'Ícone de exemplo para o eixo Economia.', src: 'assets/art/icons/icone-economia.svg', alt: 'Ícone de Economia', fit: 'contain' },
       { id: 'animais', name: 'Ícone — Animais', description: 'Ícone de exemplo para o eixo Animais.', src: 'assets/art/icons/icone-animais.svg', alt: 'Ícone de Animais', fit: 'contain' },
-      { id: 'vegetacao', name: 'Ícone — Vegetação', description: 'Ícone de exemplo para o eixo Vegetação.', src: 'assets/art/icons/icone-vegetacao.svg', alt: 'Ícone de Vegetação', fit: 'contain' },
+      { id: 'natureza', name: 'Ícone — Natureza', description: 'Ícone de exemplo para o eixo Natureza.', src: 'assets/art/icons/icone-natureza.svg', alt: 'Ícone de Natureza', fit: 'contain' },
       { id: 'cidades', name: 'Ícone — Cidades', description: 'Ícone de exemplo para o eixo Cidades.', src: 'assets/art/icons/icone-cidades.svg', alt: 'Ícone de Cidades', fit: 'contain' }
     ],
 

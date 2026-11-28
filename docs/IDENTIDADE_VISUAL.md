@@ -73,10 +73,10 @@ Usadas em marcadores, bordas, ícones e contexto visual. O nome do eixo deve sem
 | Cultura | `theme-cultura` | `#C97B5A` | 5,8:1 |
 | Economia | `theme-economia` | `#4E8FD1` | 5,5:1 |
 | Animais | `theme-animais` | `#E0A458` | 8,6:1 |
-| Vegetação | `theme-vegetacao` | `#2FBF71` | 7,9:1 |
+| Natureza | `theme-natureza` | `#2FBF71` | 7,9:1 |
 | Cidades | `theme-cidades` | `#A78BFA` | 6,9:1 |
 
-**Clima não é um sexto eixo.** É um assunto/subtópico associado ao eixo Vegetação. Quando necessário, a interface pode identificá-lo separadamente por `data-subtopic="clima"`, mantendo `data-theme="vegetacao"` para a cor e a classificação principal.
+**Clima e relevo não são eixos.** São assuntos/subtópicos associados ao eixo Natureza (antes "Vegetação"). Quando necessário, a interface pode identificá-los separadamente por `data-subtopic="clima"` ou `data-subtopic="relevo"`, mantendo `data-theme="natureza"` para a cor e a classificação principal.
 
 ### Regras de uso e equilíbrio
 

@@ -777,7 +777,7 @@
         title: 'Conexão encerrada',
         message: 'A conexão com o oponente foi perdida' + (reason === 'timeout' ? ' (sem resposta da rede)' : '') +
           '. A partida foi cancelada e não será registrada no histórico.',
-        confirmLabel: 'Voltar ao menu',
+        confirmLabel: 'Voltar ao menu principal',
         showCancel: false,
         dismissible: false,
         onConfirm: function () { ui().showScreen('menu', { history: false, clearHistory: true }); }
@@ -1422,7 +1422,7 @@
     ui().openModal({
       title: outcome === 'win' ? 'Vitória' : (outcome === 'loss' ? 'Você perdeu' : 'Empate'),
       message: 'Acertos: você ' + myRight() + ' × ' + oppRight() + ' ' + displayOpp() + '.',
-      confirmLabel: 'Voltar ao menu',
+      confirmLabel: 'Voltar ao menu principal',
       showCancel: false,
       onConfirm: function () { ui().showScreen('menu', { history: false, clearHistory: true }); }
     });
